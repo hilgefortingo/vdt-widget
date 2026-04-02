@@ -1,0 +1,339 @@
+{
+  "eula": "",
+  "vendor": "Custom",
+  "license": "",
+  "id": "com.custom.vdt.valuedrivertree",
+  "version": "1.0.0",
+  "name": "Value Driver Tree",
+  "newInstancePrefix": "ValueDriverTree",
+  "description": "A professional Value Driver Tree widget for financial planning and analysis",
+  "icon": "",
+  "supportsMobile": false,
+  "supportsBookmark": false,
+  "webcomponents": [
+    {
+      "kind": "main",
+      "tag": "com-custom-vdt-main",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260401k",
+      "integrity": "",
+      "ignoreIntegrity": true
+    },
+    {
+      "kind": "styling",
+      "tag": "com-custom-vdt-styling",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260401k",
+      "integrity": "",
+      "ignoreIntegrity": true
+    }
+  ],
+  "properties": {
+    "width": {
+      "type": "integer",
+      "default": 1200
+    },
+    "height": {
+      "type": "integer",
+      "default": 600
+    },
+    "treeConfig": {
+      "type": "string",
+      "default": "",
+      "description": "JSON string defining the tree structure (managed by the on-canvas builder)"
+    },
+    "_availableDimensions": {
+      "type": "string",
+      "default": "[]"
+    },
+    "_availableVersions": {
+      "type": "string",
+      "default": "[]"
+    },
+    "_availableMeasureDims": {
+      "type": "string",
+      "default": "[]"
+    },
+    "_availableAccounts": {
+      "type": "string",
+      "default": "[]"
+    },
+    "accountDimension": {
+      "type": "string",
+      "default": "",
+      "description": "ID of the Account dimension in the model"
+    },
+    "versionDimension": {
+      "type": "string",
+      "default": "",
+      "description": "ID of the Version dimension in the model"
+    },
+    "activeVersion": {
+      "type": "string",
+      "default": "",
+      "description": "ID of the active version member to display"
+    },
+    "measureDimValue": {
+      "type": "string",
+      "default": "",
+      "description": "The @MeasureDimension value to use (e.g., Measure1). Auto-detected if empty."
+    },
+    "timeDimension": {
+      "type": "string",
+      "default": "",
+      "description": "ID of the Time/Date dimension in the model"
+    },
+    "timeGranularity": {
+      "type": "string",
+      "default": "month",
+      "description": "Time granularity: month, quarter, or year"
+    },
+    "comparisonPeriod1Label": {
+      "type": "string",
+      "default": "PY",
+      "description": "Label for the first comparison period"
+    },
+    "comparison1Type": {
+      "type": "string",
+      "default": "py",
+      "description": "Type of first comparison: py, pm, pq, version, custom"
+    },
+    "comparisonPeriod2Label": {
+      "type": "string",
+      "default": "Month PY",
+      "description": "Label for the second comparison period"
+    },
+    "comparison2Type": {
+      "type": "string",
+      "default": "pm",
+      "description": "Type of second comparison"
+    },
+    "comparisonPeriod3Label": {
+      "type": "string",
+      "default": "",
+      "description": "Label for the optional third comparison period"
+    },
+    "comparison3Type": {
+      "type": "string",
+      "default": "",
+      "description": "Type of third comparison"
+    },
+    "thresholdPositive": {
+      "type": "number",
+      "default": 5,
+      "description": "Positive threshold percentage"
+    },
+    "thresholdWarning": {
+      "type": "number",
+      "default": 0,
+      "description": "Warning threshold percentage"
+    },
+    "thresholdNegative": {
+      "type": "number",
+      "default": -5,
+      "description": "Negative threshold percentage"
+    },
+    "sliderMin": {
+      "type": "number",
+      "default": -25,
+      "description": "Minimum slider percentage"
+    },
+    "sliderMax": {
+      "type": "number",
+      "default": 25,
+      "description": "Maximum slider percentage"
+    },
+    "nodeWidth": {
+      "type": "integer",
+      "default": 400,
+      "description": "Width of each node tile in pixels"
+    },
+    "numberFormat": {
+      "type": "string",
+      "default": "en-US",
+      "description": "Locale for number formatting"
+    },
+    "changedValues": {
+      "type": "string",
+      "default": "",
+      "description": "JSON string of changed values for planning write-back (read-only, set by widget)"
+    },
+    "_writeBackCount": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of write-back entries pending"
+    },
+    "_writeBackAccounts": {
+      "type": "string",
+      "default": "",
+      "description": "Pipe-delimited account IDs for write-back (index-aligned)"
+    },
+    "_writeBackTimes": {
+      "type": "string",
+      "default": "",
+      "description": "Pipe-delimited time member IDs for write-back (index-aligned)"
+    },
+    "_writeBackValues": {
+      "type": "string",
+      "default": "",
+      "description": "Pipe-delimited new values for write-back (index-aligned)"
+    },
+    "_writeBackVersion": {
+      "type": "string",
+      "default": "",
+      "description": "The version ID used for write-back entries"
+    },
+    "_writeBackMeasureDim": {
+      "type": "string",
+      "default": "",
+      "description": "The @MeasureDimension value for write-back selections (e.g., SignedData)"
+    },
+    "_writeBackAccountDim": {
+      "type": "string",
+      "default": "",
+      "description": "The account dimension ID for write-back selections"
+    },
+    "_writeBackVersionDim": {
+      "type": "string",
+      "default": "",
+      "description": "The version dimension ID for write-back selections"
+    },
+    "_writeBackTimeDim": {
+      "type": "string",
+      "default": "",
+      "description": "The time dimension ID for write-back selections"
+    }
+  },
+  "methods": {
+    "getDataSource": {
+      "returnType": "DataSource",
+      "description": "Returns the data source for scripting",
+      "parameters": [],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource();"
+    },
+    "getDimensions": {
+      "returnType": "DimensionInfo[]",
+      "description": "Returns available dimensions from the bound model",
+      "parameters": [],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource().getDimensions();"
+    },
+    "getMeasures": {
+      "returnType": "MeasureInfo[]",
+      "description": "Returns available measures from the bound model",
+      "parameters": [],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource().getMeasures();"
+    },
+    "getMembers": {
+      "returnType": "MemberInfo[]",
+      "description": "Returns members of the specified dimension",
+      "parameters": [
+        { "name": "dimensionId", "type": "string", "description": "The dimension ID" }
+      ],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource().getMembers(dimensionId);"
+    },
+    "getChangedValues": {
+      "returnType": "string",
+      "description": "Returns JSON of all changed values for planning write-back",
+      "parameters": [],
+      "body": "return this.changedValues;"
+    },
+    "getWriteBackCount": {
+      "returnType": "integer",
+      "description": "Returns the number of pending write-back entries",
+      "parameters": [],
+      "body": "return this._writeBackCount;"
+    },
+    "getWriteBackAccount": {
+      "returnType": "string",
+      "description": "Returns the account ID for the write-back entry at the given index",
+      "parameters": [
+        { "name": "index", "type": "integer", "description": "Entry index (0-based)" }
+      ],
+      "body": "return this._writeBackAccounts.split('|')[index] || '';"
+    },
+    "getWriteBackTime": {
+      "returnType": "string",
+      "description": "Returns the time member ID for the write-back entry at the given index",
+      "parameters": [
+        { "name": "index", "type": "integer", "description": "Entry index (0-based)" }
+      ],
+      "body": "return this._writeBackTimes.split('|')[index] || '';"
+    },
+    "getWriteBackValue": {
+      "returnType": "string",
+      "description": "Returns the new value for the write-back entry at the given index",
+      "parameters": [
+        { "name": "index", "type": "integer", "description": "Entry index (0-based)" }
+      ],
+      "body": "return this._writeBackValues.split('|')[index] || '';"
+    },
+    "getWriteBackVersion": {
+      "returnType": "string",
+      "description": "Returns the version ID for write-back",
+      "parameters": [],
+      "body": "return this._writeBackVersion;"
+    },
+    "getWriteBackMeasureDim": {
+      "returnType": "string",
+      "description": "Returns the @MeasureDimension value for write-back selections (e.g., SignedData)",
+      "parameters": [],
+      "body": "return this._writeBackMeasureDim;"
+    },
+    "getWriteBackAccountDim": {
+      "returnType": "string",
+      "description": "Returns the account dimension name for write-back selections",
+      "parameters": [],
+      "body": "return this._writeBackAccountDim;"
+    },
+    "getWriteBackVersionDim": {
+      "returnType": "string",
+      "description": "Returns the version dimension name for write-back selections",
+      "parameters": [],
+      "body": "return this._writeBackVersionDim;"
+    },
+    "getWriteBackTimeDim": {
+      "returnType": "string",
+      "description": "Returns the time dimension name for write-back selections",
+      "parameters": [],
+      "body": "return this._writeBackTimeDim;"
+    },
+    "getTreeConfig": {
+      "returnType": "string",
+      "description": "Returns the current tree configuration JSON",
+      "parameters": [],
+      "body": "return this.treeConfig;"
+    },
+    "setTreeConfig": {
+      "description": "Sets the tree configuration JSON",
+      "parameters": [
+        { "name": "config", "type": "string", "description": "Tree configuration JSON string" }
+      ],
+      "body": "this.treeConfig = config;"
+    }
+  },
+  "events": {
+    "onResultChanged": {
+      "description": "Called when the data binding result set changes"
+    },
+    "onSubmitPlanning": {
+      "description": "Fired when the user submits changed planning values"
+    },
+    "onNodeSelected": {
+      "description": "Fired when the user selects a node in the tree"
+    }
+  },
+  "dataBindings": {
+    "dataBinding": {
+      "feeds": [
+        {
+          "id": "dimensions",
+          "description": "Dimensions",
+          "type": "dimension"
+        },
+        {
+          "id": "measures",
+          "description": "Measures",
+          "type": "mainStructureMember"
+        }
+      ]
+    }
+  }
+}

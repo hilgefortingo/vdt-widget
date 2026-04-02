@@ -1,0 +1,81 @@
+{
+  "eula": "",
+  "vendor": "Custom",
+  "license": "",
+  "id": "com.custom.vdt.debug",
+  "version": "1.0.0",
+  "name": "VDT Debug Inspector",
+  "newInstancePrefix": "VDTDebug",
+  "description": "Debug widget to inspect SAC data binding structure — deploy this first to capture the real data format",
+  "icon": "",
+  "supportsMobile": false,
+  "supportsBookmark": false,
+  "webcomponents": [
+    {
+      "kind": "main",
+      "tag": "com-custom-vdt-debug",
+      "url": "https://hilgefortingo.github.io/vdt-widget/main.js",
+      "integrity": "",
+      "ignoreIntegrity": true
+    }
+  ],
+  "properties": {
+    "width": {
+      "type": "integer",
+      "default": 800
+    },
+    "height": {
+      "type": "integer",
+      "default": 600
+    }
+  },
+  "methods": {
+    "getDataSource": {
+      "returnType": "DataSource",
+      "description": "Returns the data source",
+      "parameters": [],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource();"
+    },
+    "getDimensions": {
+      "returnType": "DimensionInfo[]",
+      "description": "Returns available dimensions",
+      "parameters": [],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource().getDimensions();"
+    },
+    "getMeasures": {
+      "returnType": "MeasureInfo[]",
+      "description": "Returns available measures",
+      "parameters": [],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource().getMeasures();"
+    },
+    "getMembers": {
+      "returnType": "MemberInfo[]",
+      "description": "Returns members of a dimension",
+      "parameters": [
+        { "name": "dimensionId", "type": "string", "description": "The dimension ID" }
+      ],
+      "body": "return this.dataBindings.getDataBinding('dataBinding').getDataSource().getMembers(dimensionId);"
+    }
+  },
+  "events": {
+    "onResultChanged": {
+      "description": "Called when data binding result changes"
+    }
+  },
+  "dataBindings": {
+    "dataBinding": {
+      "feeds": [
+        {
+          "id": "dimensions",
+          "description": "Dimensions",
+          "type": "dimension"
+        },
+        {
+          "id": "measures",
+          "description": "Measures",
+          "type": "mainStructureMember"
+        }
+      ]
+    }
+  }
+}

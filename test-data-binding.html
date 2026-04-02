@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VDT — Data Binding Parser Test (Real SAC Format)</title>
+  <style>
+    @font-face { font-family: "72"; src: url("../widget/fonts/72-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "72"; src: url("../widget/fonts/72-Bold.woff2") format("woff2"); font-weight: 600; }
+    body { margin: 0; font-family: "72", Arial, sans-serif; background: #f5f6f7; }
+    .harness { display: flex; height: 100vh; }
+    .sidebar { width: 380px; background: #fff; border-right: 1px solid #d9d9d9; overflow-y: auto; padding: 16px; flex-shrink: 0; }
+    .main { flex: 1; overflow: auto; padding: 24px; }
+    h3 { font-size: 12px; font-weight: 700; color: #32363a; margin: 16px 0 8px 0; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    h3:first-child { margin-top: 0; }
+    pre { font-size: 11px; background: #f5f6f7; padding: 8px; border-radius: 4px; overflow-x: auto; max-height: 200px; overflow-y: auto; border: 1px solid #eee; white-space: pre-wrap; word-break: break-all; }
+    .status { font-size: 11px; padding: 6px 10px; border-radius: 4px; margin-bottom: 8px; }
+    .status--ok { background: #e8f5e9; color: #107e3e; }
+    .status--info { background: #e3f2fd; color: #0a6ed1; }
+    .status--warn { background: #fff3e0; color: #e9730c; }
+    table.dt { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px; }
+    table.dt th { text-align: left; padding: 4px 6px; background: #fafafa; border-bottom: 1px solid #ddd; font-weight: 600; color: #6a6d70; }
+    table.dt td { padding: 4px 6px; border-bottom: 1px solid #f0f0f0; }
+    table.dt td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .btn { font-family: "72", Arial, sans-serif; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 4px; cursor: pointer; border: 1px solid #d9d9d9; background: #fff; color: #32363a; margin-right: 6px; margin-bottom: 6px; }
+    .btn:hover { background: #f5f6f7; }
+    .btn--primary { background: #0a6ed1; color: #fff; border-color: #0a6ed1; }
+    .btn--primary:hover { background: #085cad; }
+    .card { background: #fff; border: 1px solid #e8e8e8; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+    .card__title { font-size: 11px; font-weight: 600; color: #6a6d70; margin-bottom: 4px; }
+    .card__value { font-size: 16px; font-weight: 700; color: #32363a; }
+    .card__sub { font-size: 10px; color: #89919a; margin-top: 2px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  </style>
+</head>
+<body>
+  <div class="harness">
+    <div class="sidebar">
+      <h3>Parser Test — Real SAC Format</h3>
+      <div class="status status--info">Using captured SAC data binding results (filtered to March 2026)</div>
+
+      <h3>Actions</h3>
+      <button class="btn btn--primary" onclick="runAll()">Run All Tests</button>
+
+      <h3>Parsed Metadata</h3>
+      <pre id="metaOut">-</pre>
+
+      <h3>Account Members</h3>
+      <pre id="acctOut">-</pre>
+
+      <h3>Version Members</h3>
+      <pre id="verOut">-</pre>
+
+      <h3>@MeasureDimension Members</h3>
+      <pre id="mdOut">-</pre>
+
+      <h3>Time Members (Month Level)</h3>
+      <pre id="timeOut">-</pre>
+    </div>
+
+    <div class="main">
+      <h3>Account Values — Actual / March 2026</h3>
+      <div id="valuesOut">Click "Run All Tests"</div>
+
+      <h3>Data Rows Summary</h3>
+      <div id="rowsOut">-</div>
+    </div>
+  </div>
+
+  <script src="data-binding-parser.js"></script>
+  <script>
+    // ── Real SAC Data (captured from debug widget) ──
+    var sacData = {"data":[{"dimensions_0":{"id":"Measure1","label":"Measure1"},"dimensions_1":{"id":"Customer A","label":"Customer A"},"dimensions_2":{"id":"[Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]","label":"Mar","parentId":"[Posting_Date].[YMD].[Posting_Date.YEAR].[2026]","isNode":true,"isCollapsed":false},"dimensions_3":{"id":"Product A","label":"Product A"},"dimensions_4":{"id":"private.R1QSU7_IHILGEFORT.Actual2","label":"Actual2"},"measures_4":{"raw":813,"formatted":"0.813 Thousand","unit":"USD"},"measures_5":{"raw":694,"formatted":"0.694 Thousand","unit":"USD"}},{"dimensions_0":{"id":"Measure1","label":"Measure1"},"dimensions_1":{"id":"Customer A","label":"Customer A"},"dimensions_2":{"id":"[Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]","label":"Mar","parentId":"[Posting_Date].[YMD].[Posting_Date.YEAR].[2026]","isNode":true,"isCollapsed":false},"dimensions_3":{"id":"Product A","label":"Product A"},"dimensions_4":{"id":"public.Actual","label":"Actual"},"measures_4":{"raw":813,"formatted":"0.813 Thousand","unit":"USD"},"measures_5":{"raw":694,"formatted":"0.694 Thousand","unit":"USD"}},{"dimensions_0":{"id":"Measure1","label":"Measure1"},"dimensions_1":{"id":"Customer A","label":"Customer A"},"dimensions_2":{"id":"[Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]","label":"Mar","parentId":"[Posting_Date].[YMD].[Posting_Date.YEAR].[2026]","isNode":true,"isCollapsed":false},"dimensions_3":{"id":"Product A","label":"Product A"},"dimensions_4":{"id":"public.Forecast1","label":"Forecast1"},"measures_4":{"raw":813,"formatted":"0.813 Thousand","unit":"USD"},"measures_5":{"raw":694,"formatted":"0.694 Thousand","unit":"USD"}},{"dimensions_0":{"id":"Measure1","label":"Measure1"},"dimensions_1":{"id":"Customer A","label":"Customer A"},"dimensions_2":{"id":"[Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]","label":"Mar","parentId":"[Posting_Date].[YMD].[Posting_Date.YEAR].[2026]","isNode":true,"isCollapsed":false},"dimensions_3":{"id":"Product A","label":"Product A"},"dimensions_4":{"id":"public.budget1","label":"budget1"},"measures_4":{"raw":813,"formatted":"0.813 Thousand","unit":"USD"},"measures_5":{"raw":694,"formatted":"0.694 Thousand","unit":"USD"}},{"dimensions_0":{"id":"Measure1","label":"Measure1"},"dimensions_1":{"id":"Customer A","label":"Customer A"},"dimensions_2":{"id":"[Posting_Date].[YMD].&[2026-03-01]","label":"1","parentId":"[Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]"},"dimensions_3":{"id":"Product A","label":"Product A"},"dimensions_4":{"id":"public.Actual","label":"Actual"},"measures_4":{"raw":813,"formatted":"0.813 Thousand","unit":"USD"},"measures_5":{"raw":694,"formatted":"0.694 Thousand","unit":"USD"}},{"dimensions_0":{"id":"Measure2","label":"Measure2"},"dimensions_1":{"id":"Customer A","label":"Customer A"},"dimensions_2":{"id":"[Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]","label":"Mar","parentId":"[Posting_Date].[YMD].[Posting_Date.YEAR].[2026]","isNode":true,"isCollapsed":false},"dimensions_3":{"id":"Product A","label":"Product A"},"dimensions_4":{"id":"public.Actual","label":"Actual"},"measures_4":{"raw":425,"formatted":"0.42k","unit":"BBL"},"measures_5":{"raw":213,"formatted":"0.21k","unit":"BBL"}}],"metadata":{"feeds":{"dimensions":{"values":["dimensions_0","dimensions_1","dimensions_2","dimensions_3","dimensions_4"],"type":"dimension"},"measures":{"values":["measures_0","measures_1","measures_2","measures_3","measures_4","measures_5","measures_6","measures_7","measures_8"],"type":"mainStructureMember"}},"dimensions":{"dimensions_0":{"id":"@MeasureDimension","description":"Measures"},"dimensions_1":{"id":"CUSTOMER","description":"CUSTOMER"},"dimensions_2":{"id":"Posting_Date","description":"Posting Date"},"dimensions_3":{"id":"PRODUCT","description":"PRODUCT"},"dimensions_4":{"id":"Version","description":"Version"}},"mainStructureMembers":{"measures_0":{"id":"[Account].[parentId].&[1056]","label":""},"measures_1":{"id":"[Account].[parentId].&[1016]","label":""},"measures_2":{"id":"[Account].[parentId].&[1116]","label":""},"measures_3":{"id":"[Account].[parentId].&[1218]","label":""},"measures_4":{"id":"[Account].[parentId].&[1434]","label":"1434"},"measures_5":{"id":"[Account].[parentId].&[1099]","label":"1099"},"measures_6":{"id":"[Account].[parentId].&[1100]","label":""},"measures_7":{"id":"[Account].[parentId].&[1151]","label":""},"measures_8":{"id":"[Account].[parentId].&[1276]","label":""}}},"state":"success"};
+
+    // Widget config
+    var config = {
+      versionDimension: "Version",
+      timeDimension: "Posting_Date"
+    };
+
+    var parsedMeta = null;
+
+    function runAll() {
+      // 1. Parse metadata
+      parsedMeta = VDTDataParser.parseMetadata(sacData.metadata, config);
+
+      document.getElementById("metaOut").textContent = JSON.stringify({
+        measureDimKey: parsedMeta.measureDimKey,
+        versionDimKey: parsedMeta.versionDimKey,
+        timeDimKey: parsedMeta.timeDimKey,
+        otherDimKeys: parsedMeta.otherDimKeys,
+        accountCount: Object.keys(parsedMeta.accounts).length
+      }, null, 2);
+
+      // 2. Account members
+      var accounts = VDTDataParser.getAccountMembers(parsedMeta);
+      document.getElementById("acctOut").textContent = accounts.map(function (a) {
+        return a.measureKey + " → " + a.cleanId + (a.label && a.label !== a.cleanId ? " (" + a.label + ")" : "") + "  [SAC ID: " + a.sacId + "]";
+      }).join("\n");
+
+      // 3. Version members
+      var versions = VDTDataParser.getVersionMembers(sacData, parsedMeta);
+      document.getElementById("verOut").textContent = versions.map(function (v) {
+        return v.id + " — " + v.label;
+      }).join("\n");
+
+      // 4. @MeasureDimension
+      var mdMembers = VDTDataParser.getMeasureDimensionMembers(sacData, parsedMeta);
+      document.getElementById("mdOut").textContent = mdMembers.map(function (m) {
+        return m.id + " — " + m.label;
+      }).join("\n");
+
+      // 5. Time members (month level)
+      var timeMonths = VDTDataParser.getTimeMembers(sacData, parsedMeta, "month");
+      document.getElementById("timeOut").textContent = timeMonths.length > 0
+        ? timeMonths.map(function (t) {
+            return t.calMonth + " — " + t.label + "  [" + t.id + "]";
+          }).join("\n")
+        : "(no month-level time members found)";
+
+      // 6. Values for each account
+      var monthTimeId = timeMonths.length > 0 ? timeMonths[0].id : null;
+      var html = '';
+
+      if (!monthTimeId) {
+        html = '<div class="status status--warn">No month-level time member found. Showing values without time filter.</div>';
+      }
+
+      html += '<div class="grid2">';
+      accounts.forEach(function (acct) {
+        // Get value for Actual version, Measure1, March 2026 (month level)
+        var val = VDTDataParser.getNodeValue(
+          sacData.data, parsedMeta, acct.measureKey,
+          "Measure1", "public.Actual", monthTimeId
+        );
+
+        // Also get value for budget1
+        var budgetVal = VDTDataParser.getNodeValue(
+          sacData.data, parsedMeta, acct.measureKey,
+          "Measure1", "public.budget1", monthTimeId
+        );
+
+        html += '<div class="card">';
+        html += '<div class="card__title">Account ' + acct.cleanId + (acct.label !== acct.cleanId ? ' (' + acct.label + ')' : '') + '</div>';
+        html += '<div class="card__title" style="font-size:9px; color:#89919a;">' + acct.measureKey + '</div>';
+
+        if (val) {
+          html += '<div class="card__value">' + val.value.toLocaleString() + ' ' + val.unit + '</div>';
+          html += '<div class="card__sub">Actual / ' + (monthTimeId ? 'Mar 2026' : 'All') + '</div>';
+        } else {
+          html += '<div class="card__value" style="color:#89919a;">No data</div>';
+          html += '<div class="card__sub">Account may not have data for this period</div>';
+        }
+
+        if (budgetVal) {
+          html += '<div class="card__sub" style="margin-top:4px;">Budget: ' + budgetVal.value.toLocaleString() + ' ' + budgetVal.unit + '</div>';
+        }
+
+        html += '</div>';
+      });
+      html += '</div>';
+
+      document.getElementById("valuesOut").innerHTML = html;
+
+      // 7. Row summary
+      var rowHtml = '<table class="dt"><thead><tr><th>@Measure</th><th>Version</th><th>Time</th><th>Time Level</th><th>Accts with data</th></tr></thead><tbody>';
+      sacData.data.forEach(function (row, i) {
+        var md = row[parsedMeta.measureDimKey];
+        var ver = row[parsedMeta.versionDimKey];
+        var time = row[parsedMeta.timeDimKey];
+        var acctsWithData = parsedMeta.measureKeys.filter(function (mk) { return row[mk] !== undefined; }).length;
+        var timeLevel = VDTDataParser.isMonthLevel(time) ? "MONTH" : VDTDataParser.isAllLevel(time) ? "ALL" : "DAY";
+
+        rowHtml += '<tr><td>' + (md ? md.id : '-') + '</td>';
+        rowHtml += '<td>' + (ver ? ver.label : '-') + '</td>';
+        rowHtml += '<td>' + (time ? time.label : '-') + '</td>';
+        rowHtml += '<td>' + timeLevel + '</td>';
+        rowHtml += '<td class="num">' + acctsWithData + ' / ' + parsedMeta.measureKeys.length + '</td></tr>';
+      });
+      rowHtml += '</tbody></table>';
+      document.getElementById("rowsOut").innerHTML = rowHtml;
+    }
+  </script>
+</body>
+</html>

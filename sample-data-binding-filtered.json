@@ -1,0 +1,9 @@
+{
+  "description": "Real SAC data binding result — filtered to March 2026. Shows time hierarchy with month and day levels. Only accounts with data for this period appear in rows.",
+  "notes": {
+    "time_hierarchy": "Year → Month → Day. Month ID: [Posting_Date].[YMD].[Posting_Date.CALMONTH].[202603]. Day ID: [Posting_Date].[YMD].&[2026-03-01]",
+    "account_id_format": "[Account].[parentId].&[1434] — extract number from brackets",
+    "missing_measures": "measures_0-3 and measures_6-8 not in data rows (no data for this period or filtered out)",
+    "duplicate_rows": "Both month aggregate (isNode:true) and day detail rows present — filter by isNode for monthly view"
+  }
+}

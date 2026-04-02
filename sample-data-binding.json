@@ -1,0 +1,46 @@
+{
+  "description": "Real SAC data binding result captured 2026-03-30. Model has Account (as measures), @MeasureDimension, Customer, Product, Posting_Date (hierarchical), Version dimensions.",
+  "data": [
+    {
+      "dimensions_0": { "id": "Measure1", "label": "Measure1" },
+      "dimensions_1": { "id": "Customer A", "label": "Customer A" },
+      "dimensions_2": { "id": "[Posting_Date].[YMD].[All].[(all)]", "label": "(all)", "isNode": true, "isCollapsed": true },
+      "dimensions_3": { "id": "Product A", "label": "Product A" },
+      "dimensions_4": { "id": "public.Actual", "label": "Actual" },
+      "measures_0": { "raw": 758, "formatted": "0.758 Thousand", "unit": "USD" },
+      "measures_1": { "raw": 792, "formatted": "0.792 Thousand", "unit": "USD" },
+      "measures_2": { "raw": 715, "formatted": "0.715 Thousand", "unit": "USD" },
+      "measures_3": { "raw": 163, "formatted": "0.163 Thousand", "unit": "USD" },
+      "measures_4": { "raw": 813, "formatted": "0.813 Thousand", "unit": "USD" },
+      "measures_5": { "raw": 694, "formatted": "0.694 Thousand", "unit": "USD" },
+      "measures_6": { "raw": 870, "formatted": "0.870 Thousand", "unit": "USD" },
+      "measures_7": { "raw": 386, "formatted": "0.386 Thousand", "unit": "USD" },
+      "measures_8": { "raw": 992, "formatted": "0.992 Thousand", "unit": "USD" }
+    }
+  ],
+  "metadata": {
+    "feeds": {
+      "dimensions": { "values": ["dimensions_0","dimensions_1","dimensions_2","dimensions_3","dimensions_4"], "type": "dimension" },
+      "measures": { "values": ["measures_0","measures_1","measures_2","measures_3","measures_4","measures_5","measures_6","measures_7","measures_8"], "type": "mainStructureMember" }
+    },
+    "dimensions": {
+      "dimensions_0": { "id": "@MeasureDimension", "description": "Measures" },
+      "dimensions_1": { "id": "CUSTOMER", "description": "CUSTOMER" },
+      "dimensions_2": { "id": "Posting_Date", "description": "Posting Date" },
+      "dimensions_3": { "id": "PRODUCT", "description": "PRODUCT" },
+      "dimensions_4": { "id": "Version", "description": "Version" }
+    },
+    "mainStructureMembers": {
+      "measures_0": { "id": "[Account].[parentId].&[1056]", "label": "1056" },
+      "measures_1": { "id": "[Account].[parentId].&[1016]", "label": "1016" },
+      "measures_2": { "id": "[Account].[parentId].&[1116]", "label": "1116" },
+      "measures_3": { "id": "[Account].[parentId].&[1218]", "label": "1218" },
+      "measures_4": { "id": "[Account].[parentId].&[1434]", "label": "1434" },
+      "measures_5": { "id": "[Account].[parentId].&[1099]", "label": "1099" },
+      "measures_6": { "id": "[Account].[parentId].&[1100]", "label": "1100" },
+      "measures_7": { "id": "[Account].[parentId].&[1151]", "label": "1151" },
+      "measures_8": { "id": "[Account].[parentId].&[1276]", "label": "1276" }
+    }
+  },
+  "state": "success"
+}
