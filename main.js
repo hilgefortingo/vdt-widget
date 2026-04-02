@@ -69,11 +69,12 @@
     .vdt-node:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.14); }
 
     /* Threshold bar */
-    .vdt-node__threshold { grid-column: 1; grid-row: 1 / -1; border-radius: 8px 0 0 8px; }
+    .vdt-node__threshold { grid-column: 1; grid-row: 1 / -1; border-radius: 8px 0 0 8px; display: flex; align-items: center; justify-content: center; min-width: 6px; }
     .vdt-node__threshold--positive { background: #107e3e; }
     .vdt-node__threshold--warning { background: #e9730c; }
     .vdt-node__threshold--negative { background: #bb0000; }
     .vdt-node__threshold--neutral { background: #89919a; }
+    .vdt-node__threshold-arrow { color: #fff; font-size: 8px; line-height: 1; }
 
     /* Header */
     .vdt-node__header { grid-column: 2 / 4; display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 8px 14px; border-bottom: 1px solid #eee; gap: 8px; }
@@ -633,7 +634,9 @@
           measureKey: null,
           inputEnabled: !!n.inputEnabled,
           anchor: n.anchor || null,
+          kpiDirection: n.kpiDirection || "higher",
           threshold: "neutral",
+          thresholdArrow: "",
           baseValue: 0,
           value: 0,
           ds1: {
@@ -728,7 +731,7 @@
       if (root) this.recalcParents(root);
 
       // Determine thresholds (DS1 fullYear vs DS2 fullYear)
-      if (root) this._updateThresholds(root);
+      if (root) this._updateThresholds(root, widgetProps);
 
       // Store planning context for write-back (uses DS1)
       this._planningContext = {
@@ -954,19 +957,33 @@
       root.baseValue = root.baseValue || root.value;
     }
 
-    _updateThresholds(node) {
+    _updateThresholds(node, widgetProps) {
       if (!node) return;
-      // Compare DS1 fullYear vs DS2 fullYear for threshold coloring
       const ds1FY = node.ds1.fullYear;
       const ds2FY = node.ds2.fullYear;
+      // kpiDirection: "higher" (revenue — growth is good) or "lower" (cost — decline is good)
+      const direction = node.kpiDirection || "higher";
+
       if (ds2FY !== 0) {
-        const compPct = ((ds1FY - ds2FY) / Math.abs(ds2FY)) * 100;
-        if (compPct >= 5) node.threshold = "positive";
-        else if (compPct >= 0) node.threshold = "warning";
-        else if (compPct >= -5) node.threshold = "warning";
-        else node.threshold = "negative";
+        const changePct = ((ds1FY - ds2FY) / Math.abs(ds2FY)) * 100;
+        const isUp = changePct >= 0;
+
+        // Determine if movement is favorable based on KPI direction
+        const favorable = (direction === "higher") ? isUp : !isUp;
+
+        const thPos = (widgetProps && widgetProps.thresholdPositive) || 5;
+        const thNeg = (widgetProps && widgetProps.thresholdNegative) || -5;
+        const absPct = Math.abs(changePct);
+
+        if (favorable && absPct >= thPos) node.threshold = "positive";
+        else if (!favorable && absPct >= Math.abs(thNeg)) node.threshold = "negative";
+        else node.threshold = "warning";
+
+        node.thresholdArrow = isUp ? "▲" : "▼";
+      } else {
+        node.thresholdArrow = "";
       }
-      if (node.children) node.children.forEach(c => this._updateThresholds(c));
+      if (node.children) node.children.forEach(c => this._updateThresholds(c, widgetProps));
     }
 
     _setDemoSparklines(node) {
@@ -1158,7 +1175,7 @@
       // Design mode buttons (hidden until .vdt-design-mode is set on root)
       const designHtml = `<button class="vdt-design-add-child" data-design-add="${node.id}" title="Add child node">+</button><button class="vdt-design-edit" data-design-edit="${node.id}" title="Edit node">&#9998;</button><button class="vdt-design-del" data-design-del="${node.id}" title="Delete node">&times;</button>`;
 
-      return `<div class="vdt-node-wrap" data-node-id="${node.id}"><div class="vdt-node"><div class="vdt-node__threshold vdt-node__threshold--${node.threshold}"></div><div class="vdt-node__header"><span class="vdt-node__measure-name">${node.name}</span><span class="vdt-node__measure-value"><span class="vdt-node__value">${this.fmt(node.value)}</span><span class="vdt-node__unit">${node.unit}</span></span></div><div class="vdt-node__body"><div class="vdt-node__microchart"><svg viewBox="0 0 120 48" preserveAspectRatio="none"><path class="sparkline-area sparkline-area--${node.sparkTrend}" d="${this.areaPath(node.sparkPath)}"/><path class="sparkline sparkline--${node.sparkTrend}" d="${node.sparkPath}"/></svg></div><div class="vdt-node__display-rows">${rowsHtml}</div></div>${inputHtml}</div>${detailHtml}${anchorHtml}${toggleHtml}${designHtml}<div class="vdt-design-popup" data-design-popup="${node.id}"></div></div>`;
+      return `<div class="vdt-node-wrap" data-node-id="${node.id}"><div class="vdt-node"><div class="vdt-node__threshold vdt-node__threshold--${node.threshold}">${node.thresholdArrow ? '<span class="vdt-node__threshold-arrow">' + node.thresholdArrow + '</span>' : ''}</div><div class="vdt-node__header"><span class="vdt-node__measure-name">${node.name}</span><span class="vdt-node__measure-value"><span class="vdt-node__value">${this.fmt(node.value)}</span><span class="vdt-node__unit">${node.unit}</span></span></div><div class="vdt-node__body"><div class="vdt-node__microchart"><svg viewBox="0 0 120 48" preserveAspectRatio="none"><path class="sparkline-area sparkline-area--${node.sparkTrend}" d="${this.areaPath(node.sparkPath)}"/><path class="sparkline sparkline--${node.sparkTrend}" d="${node.sparkPath}"/></svg></div><div class="vdt-node__display-rows">${rowsHtml}</div></div>${inputHtml}</div>${detailHtml}${anchorHtml}${toggleHtml}${designHtml}<div class="vdt-design-popup" data-design-popup="${node.id}"></div></div>`;
     }
 
     renderTree(node) {
@@ -1542,6 +1559,14 @@
             </div>`;
         }
 
+        html += `<div class="vdt-config-field">
+            <label>KPI Direction</label>
+            <select data-builder-field="kpiDirection" data-builder-id="${node.id}">
+              <option value="higher" ${(node.kpiDirection || "higher") === "higher" ? "selected" : ""}>Higher is better (e.g., Revenue)</option>
+              <option value="lower" ${node.kpiDirection === "lower" ? "selected" : ""}>Lower is better (e.g., Cost)</option>
+            </select>
+          </div>`;
+
         html += `</div>`;
 
         if (children.length > 0) {
@@ -1588,6 +1613,7 @@
         if (n.accountId) out.accountId = n.accountId;
         if (n.unit) out.unit = n.unit;
         if (n.inputEnabled) out.inputEnabled = true;
+        if (n.kpiDirection && n.kpiDirection !== "higher") out.kpiDirection = n.kpiDirection;
         if (n.anchor) out.anchor = n.anchor;
         if (n.childIds && n.childIds.length > 0) out.childIds = n.childIds;
         return out;
@@ -1741,6 +1767,7 @@
         if (field === "name") node.name = e.target.value;
         if (field === "accountId") node.accountId = e.target.value;
         if (field === "inputEnabled") node.inputEnabled = e.target.checked;
+        if (field === "kpiDirection") node.kpiDirection = e.target.value;
         if (field === "operator") {
           node.anchor = { type: "calc", symbol: e.target.value };
         }
