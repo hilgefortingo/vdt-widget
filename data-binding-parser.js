@@ -33,18 +33,31 @@ var VDTDataParser = (function () {
    */
   function extractCalMonth(timeId) {
     if (!timeId) return null;
-    var match = timeId.match(/\[(\d{6})\]$/);
-    return match ? match[1] : null;
+    // Plain 6-digit: "201801"
+    if (/^\d{6}$/.test(timeId)) return timeId;
+    // Bracketed 6-digit: "[...][202603]" or "[...].&[202603]"
+    var match = timeId.match(/\[(\d{6})\]/);
+    if (match) return match[1];
+    // Anywhere in string: find first 6-digit sequence that looks like YYYYMM
+    var anywhere = timeId.match(/(\d{6})/);
+    if (anywhere && parseInt(anywhere[1].substring(0, 4)) >= 1900) return anywhere[1];
+    return null;
   }
 
   /**
    * Extract YYYY from a year-level time ID.
-   * "[Posting_Date].[YMD].[Posting_Date.YEAR].[2026]" → "2026"
+   * Handles: "[Time].[YQM].&[2018]", "2018", plain numeric
    */
   function extractYear(timeId) {
     if (!timeId) return null;
-    var match = timeId.match(/\[(\d{4})\]$/);
-    return match ? match[1] : null;
+    // Plain 4-digit: "2018"
+    if (/^\d{4}$/.test(timeId)) return timeId;
+    // Bracketed 4-digit: "[...][2018]" or "[...].&[2018]"
+    var match = timeId.match(/\[(\d{4})\]/);
+    if (match) return match[1];
+    // From a 6-digit calMonth: "201801" → "2018"
+    if (/^\d{6}$/.test(timeId)) return timeId.substring(0, 4);
+    return null;
   }
 
   /**
