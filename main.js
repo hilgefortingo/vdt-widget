@@ -105,7 +105,7 @@
     .vdt-node__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; }
     .vdt-node__value-row + .vdt-node__value-row { border-top: 1px solid #f0f0f0; }
     .vdt-node__row-label { font-size: 10px; font-weight: 600; color: #6a6d70; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-    .vdt-node__row-value { font-size: 12px; font-weight: 600; color: #32363a; white-space: nowrap; }
+    .vdt-node__row-value { font-size: 12px; font-weight: 600; color: #32363a; white-space: nowrap; text-align: right; margin-left: auto; }
 
     /* Comparison (legacy) */
     .vdt-node__comparison { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
@@ -698,6 +698,9 @@
           if (anyVal) node.unit = anyVal.unit || "";
         }
 
+        // Build sparkline from DS1 monthly data
+        this._buildSparkline(node);
+
         // Build display rows
         node.displayRows = this._buildDisplayRows(node, valueRowsConfig);
         node.value = node.displayRows.length > 0 ? node.displayRows[0].value : node.ds1.fullYear;
@@ -740,6 +743,33 @@
       this.treeData = root;
       this._buildIndex(root);
       return root;
+    }
+
+    // Build sparkline SVG path from DS1 monthly data
+    _buildSparkline(node) {
+      const vals = node.ds1.monthly;
+      const hasData = vals.some(v => v !== 0);
+      if (!hasData) return;
+
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      const range = max - min || 1;
+      const w = 120, h = 48, pad = 4;
+
+      const points = vals.map((v, i) => {
+        const x = Math.round((i / 11) * w);
+        const y = Math.round(pad + (1 - (v - min) / range) * (h - pad * 2));
+        return { x, y };
+      });
+
+      node.sparkPath = "M" + points.map(p => p.x + "," + p.y).join(" L");
+
+      // Determine trend from first half avg vs second half avg
+      const firstHalf = vals.slice(0, 6).reduce((a, b) => a + b, 0);
+      const secondHalf = vals.slice(6).reduce((a, b) => a + b, 0);
+      if (secondHalf > firstHalf * 1.02) node.sparkTrend = "positive";
+      else if (secondHalf < firstHalf * 0.98) node.sparkTrend = "negative";
+      else node.sparkTrend = "neutral";
     }
 
     // Build display rows for a node based on valueRows config
@@ -916,7 +946,8 @@
       root.ds2.fullYear = root.ds2.monthly.reduce((a, b) => a + b, 0);
       root.ds2.monthValue = root.ds2.monthly[this._defaultMonthIdx] || 0;
 
-      // Recompute display rows and primary value
+      // Recompute sparkline, display rows and primary value
+      this._buildSparkline(root);
       root.displayRows = this._buildDisplayRows(root);
       root.value = root.displayRows.length > 0 ? root.displayRows[0].value : root.ds1.fullYear;
       root.baseValue = root.baseValue || root.value;
