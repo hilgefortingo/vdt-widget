@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260402g",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260402h",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260402g",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260402h",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -65,11 +65,6 @@
       "type": "string",
       "default": "",
       "description": "ID of the Version dimension in the model"
-    },
-    "activeVersion": {
-      "type": "string",
-      "default": "",
-      "description": "(deprecated) ID of the active version member to display"
     },
     "ds1Version": {
       "type": "string",
@@ -115,41 +110,6 @@
       "type": "string",
       "default": "month",
       "description": "Time granularity: month, quarter, or year"
-    },
-    "displayTimeVariant": {
-      "type": "string",
-      "default": "fullYear",
-      "description": "Display time variant: fullYear, ytd, or month"
-    },
-    "comparisonPeriod1Label": {
-      "type": "string",
-      "default": "PY",
-      "description": "Label for the first comparison period"
-    },
-    "comparison1Type": {
-      "type": "string",
-      "default": "py",
-      "description": "Type of first comparison: py, pm, pq, version, custom"
-    },
-    "comparisonPeriod2Label": {
-      "type": "string",
-      "default": "Month PY",
-      "description": "Label for the second comparison period"
-    },
-    "comparison2Type": {
-      "type": "string",
-      "default": "pm",
-      "description": "Type of second comparison"
-    },
-    "comparisonPeriod3Label": {
-      "type": "string",
-      "default": "",
-      "description": "Label for the optional third comparison period"
-    },
-    "comparison3Type": {
-      "type": "string",
-      "default": "",
-      "description": "Type of third comparison"
     },
     "thresholdPositive": {
       "type": "number",
