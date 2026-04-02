@@ -102,10 +102,11 @@
 
     /* Display Rows */
     .vdt-node__display-rows { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-    .vdt-node__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; }
+    .vdt-node__value-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 2px 0; }
     .vdt-node__value-row + .vdt-node__value-row { border-top: 1px solid #f0f0f0; }
     .vdt-node__row-label { font-size: 10px; font-weight: 600; color: #6a6d70; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-    .vdt-node__row-value { font-size: 12px; font-weight: 600; color: #32363a; white-space: nowrap; text-align: right; margin-left: auto; }
+    .vdt-node__row-value { font-size: 12px; font-weight: 600; color: #32363a; white-space: nowrap; text-align: right; }
+    .vdt-node__row-variance { text-align: right; white-space: nowrap; }
 
     /* Comparison (legacy) */
     .vdt-node__comparison { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
@@ -1118,10 +1119,10 @@
         const pairRow = node.displayRows.find((r, j) =>
           j !== idx && r.dataSet !== row.dataSet && r.timeVariant === row.timeVariant
         );
-        let varHtml = "";
+        let varHtml = '<span class="vdt-node__row-variance"></span>';
         if (pairRow) {
           const v = this.computeVariance(row.value, pairRow.value, node.unit);
-          varHtml = `<span class="vdt-node__variance vdt-node__variance--${v.dir}"><span class="vdt-node__variance-arrow">${v.arrow}</span><span>${v.varDisplay}</span><span>(${v.pctDisplay})</span></span>`;
+          varHtml = `<span class="vdt-node__row-variance"><span class="vdt-node__variance vdt-node__variance--${v.dir}"><span class="vdt-node__variance-arrow">${v.arrow}</span><span>${v.varDisplay}</span><span>(${v.pctDisplay})</span></span></span>`;
         }
         return `<div class="vdt-node__value-row" data-row-idx="${idx}" data-node-id="${node.id}">
           <span class="vdt-node__row-label">${row.label}</span>
