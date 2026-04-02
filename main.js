@@ -1208,6 +1208,7 @@
 
     // ── Data Binding Setter (SAC delivers data here) ──
     set dataBinding(value) {
+      console.log("VDT: dataBinding setter called", { state: value?.state, hasMetadata: !!value?.metadata, metadataKeys: value?.metadata ? Object.keys(value.metadata) : [], dataLength: value?.data?.length, raw: value });
       this._dataBinding = value;
       this._publishModelInfo();
       this.render();
@@ -1220,10 +1221,12 @@
     // Extract model info from data binding and populate config panel + styling panel
     _publishModelInfo() {
       const db = this._dataBinding;
+      console.log("VDT: _publishModelInfo", { hasDb: !!db, state: db?.state });
       if (!db || db.state !== "success") return;
 
       try {
         const parsedMeta = VDTDataParser.parseMetadata(db.metadata, this._props);
+        console.log("VDT: parsedMeta", { dims: Object.keys(parsedMeta.dimensions), accountCount: Object.keys(parsedMeta.accounts).length });
         this._parsedMeta = parsedMeta;
 
         // Build dimensions list (excluding @MeasureDimension)
