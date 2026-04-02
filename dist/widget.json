@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260401k",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260402b",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260401k",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260402b",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -85,6 +85,11 @@
       "type": "string",
       "default": "month",
       "description": "Time granularity: month, quarter, or year"
+    },
+    "displayTimeVariant": {
+      "type": "string",
+      "default": "fullYear",
+      "description": "Display time variant: fullYear, ytd, or month"
     },
     "comparisonPeriod1Label": {
       "type": "string",

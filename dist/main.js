@@ -546,6 +546,7 @@ var VDTDataParser = (function () {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = VDTDataParser;
 }
+
 (function () {
   // ── Constants ──
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -958,6 +959,15 @@ if (typeof module !== "undefined" && module.exports) {
             </select>
             <div class="vdt-config-hint">Must match the expansion level in the data binding.</div>
           </div>
+          <div class="vdt-config-field">
+            <label>Display Time Variant</label>
+            <select id="cfgDisplayTimeVariant">
+              <option value="fullYear">Full Year</option>
+              <option value="ytd">Year to Date (YTD)</option>
+              <option value="month">Current Month</option>
+            </select>
+            <div class="vdt-config-hint">Which time period to show as the primary node value.</div>
+          </div>
           <div id="cfgDimStatus"></div>
         </div>
 
@@ -1048,14 +1058,37 @@ if (typeof module !== "undefined" && module.exports) {
         timeDimension: widgetProps.timeDimension || ""
       };
       const parsedMeta = VDTDataParser.parseMetadata(dataBinding.metadata, parserConfig);
+      const yearMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "year");
       const monthMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "month");
       const dayMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "day");
 
-      // Determine the primary time member (last month, or last day, or null)
-      const primaryTimeMember = monthMembers.length > 0 ? monthMembers[monthMembers.length - 1]
-        : dayMembers.length > 0 ? dayMembers[dayMembers.length - 1] : null;
-      // For aggregate value lookup, use null (matches any/all row) when no month-level data
-      const primaryTimeId = (monthMembers.length > 0 && primaryTimeMember) ? primaryTimeMember.id : null;
+      // Display Time Variant determines which time period(s) to use for the primary node value
+      const displayTimeVariant = widgetProps.displayTimeVariant || "fullYear";
+      const now = new Date();
+      const currentCalMonth = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
+
+      let primaryTimeId = null;
+      let primaryTimeIds = null; // for aggregation (YTD, fullYear)
+
+      if (displayTimeVariant === "month" && monthMembers.length > 0) {
+        // Current month — find the month matching today's date, fall back to last available
+        const match = monthMembers.find(m => m.calMonth === currentCalMonth);
+        const member = match || monthMembers[monthMembers.length - 1];
+        primaryTimeId = member.id;
+      } else if (displayTimeVariant === "ytd" && monthMembers.length > 0) {
+        // Year to date — sum all months up to and including the current month
+        primaryTimeIds = monthMembers
+          .filter(m => m.calMonth && m.calMonth <= currentCalMonth)
+          .map(m => m.id);
+        if (primaryTimeIds.length === 0) primaryTimeIds = monthMembers.map(m => m.id);
+      } else {
+        // Full Year (default) — use year-level node if available, otherwise sum all months
+        if (yearMembers.length > 0) {
+          primaryTimeId = yearMembers[0].id;
+        } else if (monthMembers.length > 0) {
+          primaryTimeIds = monthMembers.map(m => m.id);
+        }
+      }
       const primaryVersion = widgetProps.activeVersion || "public.Actual";
       const measureDimValue = widgetProps.measureDimValue || null;
 
@@ -1104,10 +1137,18 @@ if (typeof module !== "undefined" && module.exports) {
         if (!measureKey) continue;
         node.measureKey = measureKey;
 
-        // Get primary value
-        const primaryVal = VDTDataParser.getNodeValue(
-          dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, primaryTimeId
-        );
+        // Get primary value based on display time variant
+        let primaryVal = null;
+        if (primaryTimeIds && primaryTimeIds.length > 0) {
+          // Aggregate across multiple time periods (YTD or fullYear without year-level row)
+          primaryVal = VDTDataParser.aggregateNodeValues(
+            dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, primaryTimeIds
+          );
+        } else {
+          primaryVal = VDTDataParser.getNodeValue(
+            dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, primaryTimeId
+          );
+        }
         if (primaryVal) {
           node.baseValue = primaryVal.value;
           node.value = primaryVal.value;
@@ -1756,6 +1797,7 @@ if (typeof module !== "undefined" && module.exports) {
 
     // ── Data Binding Setter (SAC delivers data here) ──
     set dataBinding(value) {
+      console.log("VDT: dataBinding setter called", { state: value?.state, hasMetadata: !!value?.metadata, metadataKeys: value?.metadata ? Object.keys(value.metadata) : [], dataLength: value?.data?.length, raw: value });
       this._dataBinding = value;
       this._publishModelInfo();
       this.render();
@@ -1768,10 +1810,12 @@ if (typeof module !== "undefined" && module.exports) {
     // Extract model info from data binding and populate config panel + styling panel
     _publishModelInfo() {
       const db = this._dataBinding;
+      console.log("VDT: _publishModelInfo", { hasDb: !!db, state: db?.state });
       if (!db || db.state !== "success") return;
 
       try {
         const parsedMeta = VDTDataParser.parseMetadata(db.metadata, this._props);
+        console.log("VDT: parsedMeta", { dims: Object.keys(parsedMeta.dimensions), accountCount: Object.keys(parsedMeta.accounts).length });
         this._parsedMeta = parsedMeta;
 
         // Build dimensions list (excluding @MeasureDimension)
@@ -2064,15 +2108,17 @@ if (typeof module !== "undefined" && module.exports) {
       });
 
       // Dimension dropdowns
-      ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgActiveVersion", "cfgMeasure"].forEach(selId => {
+      ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgDisplayTimeVariant", "cfgActiveVersion", "cfgMeasure"].forEach(selId => {
         root.getElementById(selId).addEventListener("change", () => {
           this._applyConfigDimensions();
         });
       });
 
-      // Restore time granularity from saved props
+      // Restore time granularity and display time variant from saved props
       const granSel = root.getElementById("cfgTimeGranularity");
       if (this._props.timeGranularity) granSel.value = this._props.timeGranularity;
+      const dtvSel = root.getElementById("cfgDisplayTimeVariant");
+      if (this._props.displayTimeVariant) dtvSel.value = this._props.displayTimeVariant;
 
       // Add root-level node
       root.getElementById("builderAddBtn").addEventListener("click", () => {
@@ -2198,6 +2244,7 @@ if (typeof module !== "undefined" && module.exports) {
         versionDimension: root.getElementById("cfgVersionDim").value,
         timeDimension: root.getElementById("cfgTimeDim").value,
         timeGranularity: root.getElementById("cfgTimeGranularity").value,
+        displayTimeVariant: root.getElementById("cfgDisplayTimeVariant").value,
         activeVersion: root.getElementById("cfgActiveVersion").value,
         measureDimValue: root.getElementById("cfgMeasure").value
       };
@@ -2222,6 +2269,7 @@ if (typeof module !== "undefined" && module.exports) {
         versionDimension: root.getElementById("cfgVersionDim").value,
         timeDimension: root.getElementById("cfgTimeDim").value,
         timeGranularity: root.getElementById("cfgTimeGranularity").value,
+        displayTimeVariant: root.getElementById("cfgDisplayTimeVariant").value,
         activeVersion: root.getElementById("cfgActiveVersion").value,
         measureDimValue: root.getElementById("cfgMeasure").value,
         treeConfig: treeConfig
