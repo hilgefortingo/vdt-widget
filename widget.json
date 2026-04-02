@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260402c",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260402d",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260402c",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260402d",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -69,7 +69,37 @@
     "activeVersion": {
       "type": "string",
       "default": "",
-      "description": "ID of the active version member to display"
+      "description": "(deprecated) ID of the active version member to display"
+    },
+    "ds1Version": {
+      "type": "string",
+      "default": "",
+      "description": "Version member ID for Data Set 1 (primary/editable)"
+    },
+    "ds1Year": {
+      "type": "string",
+      "default": "",
+      "description": "Year for Data Set 1 (e.g., '2018')"
+    },
+    "ds2Version": {
+      "type": "string",
+      "default": "",
+      "description": "Version member ID for Data Set 2 (comparison/read-only)"
+    },
+    "ds2Year": {
+      "type": "string",
+      "default": "",
+      "description": "Year for Data Set 2 (e.g., '2019')"
+    },
+    "defaultMonth": {
+      "type": "string",
+      "default": "current",
+      "description": "Default month: 'current' for system date, or '01'-'12' for specific month"
+    },
+    "valueRows": {
+      "type": "string",
+      "default": "[{\"dataSet\":1,\"timeVariant\":\"fullYear\",\"label\":\"DS1 Full Year\"},{\"dataSet\":2,\"timeVariant\":\"fullYear\",\"label\":\"DS2 Full Year\"}]",
+      "description": "JSON array of up to 4 value row definitions [{dataSet, timeVariant, label}]"
     },
     "measureDimValue": {
       "type": "string",

@@ -100,7 +100,14 @@
     .sparkline-area--negative { fill: #bb0000; }
     .sparkline-area--neutral { fill: #89919a; }
 
-    /* Comparison */
+    /* Display Rows */
+    .vdt-node__display-rows { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+    .vdt-node__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; }
+    .vdt-node__value-row + .vdt-node__value-row { border-top: 1px solid #f0f0f0; }
+    .vdt-node__row-label { font-size: 10px; font-weight: 600; color: #6a6d70; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+    .vdt-node__row-value { font-size: 12px; font-weight: 600; color: #32363a; white-space: nowrap; }
+
+    /* Comparison (legacy) */
     .vdt-node__comparison { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
     .vdt-node__comp-group { display: flex; flex-direction: column; gap: 1px; }
     .vdt-node__comp-group + .vdt-node__comp-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee; }
@@ -388,11 +395,6 @@
             <select id="cfgVersionDim"><option value="">(auto-detect)</option></select>
           </div>
           <div class="vdt-config-field">
-            <label>Active Version</label>
-            <select id="cfgActiveVersion"><option value="">(first available)</option></select>
-            <div class="vdt-config-hint">Version displayed in the tree.</div>
-          </div>
-          <div class="vdt-config-field">
             <label>Measure</label>
             <select id="cfgMeasure"><option value="">(auto-detect)</option></select>
             <div class="vdt-config-hint">@MeasureDimension value (e.g., Revenue USD vs Volume BBL).</div>
@@ -410,16 +412,52 @@
             </select>
             <div class="vdt-config-hint">Must match the expansion level in the data binding.</div>
           </div>
-          <div class="vdt-config-field">
-            <label>Display Time Variant</label>
-            <select id="cfgDisplayTimeVariant">
-              <option value="fullYear">Full Year</option>
-              <option value="ytd">Year to Date (YTD)</option>
-              <option value="month">Current Month</option>
-            </select>
-            <div class="vdt-config-hint">Which time period to show as the primary node value.</div>
-          </div>
           <div id="cfgDimStatus"></div>
+        </div>
+
+        <div class="vdt-config-section">
+          <div class="vdt-config-section-title">Data Set 1 (Primary / Editable)</div>
+          <div class="vdt-config-field">
+            <label>Version</label>
+            <select id="cfgDs1Version"><option value="">(first available)</option></select>
+          </div>
+          <div class="vdt-config-field">
+            <label>Year</label>
+            <select id="cfgDs1Year"><option value="">(all available)</option></select>
+          </div>
+        </div>
+
+        <div class="vdt-config-section">
+          <div class="vdt-config-section-title">Data Set 2 (Comparison / Read-Only)</div>
+          <div class="vdt-config-field">
+            <label>Version</label>
+            <select id="cfgDs2Version"><option value="">(none)</option></select>
+          </div>
+          <div class="vdt-config-field">
+            <label>Year</label>
+            <select id="cfgDs2Year"><option value="">(none)</option></select>
+          </div>
+        </div>
+
+        <div class="vdt-config-section">
+          <div class="vdt-config-section-title">Display Settings</div>
+          <div class="vdt-config-field">
+            <label>Default Month</label>
+            <select id="cfgDefaultMonth">
+              <option value="current">Current Month</option>
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="vdt-config-field">
+            <label>Value Rows (up to 4)</label>
+            <div id="cfgValueRows"></div>
+            <button class="vdt-config-btn vdt-config-btn--secondary" id="cfgAddValueRow" style="margin-top:4px;">+ Add Row</button>
+          </div>
         </div>
 
         <div class="vdt-config-section">
@@ -509,38 +547,42 @@
         timeDimension: widgetProps.timeDimension || ""
       };
       const parsedMeta = VDTDataParser.parseMetadata(dataBinding.metadata, parserConfig);
-      const yearMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "year");
       const monthMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "month");
-      const dayMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "day");
+      const yearMembers = VDTDataParser.getTimeMembers(dataBinding, parsedMeta, "year");
 
-      // Display Time Variant determines which time period(s) to use for the primary node value
-      const displayTimeVariant = widgetProps.displayTimeVariant || "fullYear";
-      const now = new Date();
-      const currentCalMonth = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
+      // Resolve Data Set versions (backward compat: fall back to activeVersion)
+      const ds1Version = widgetProps.ds1Version || widgetProps.activeVersion || "public.Actual";
+      const ds2Version = widgetProps.ds2Version || "";
+      const ds1Year = widgetProps.ds1Year || "";
+      const ds2Year = widgetProps.ds2Year || "";
 
-      let primaryTimeId = null;
-      let primaryTimeIds = null; // for aggregation (YTD, fullYear)
+      // Filter month members by year for each data set
+      const ds1Months = ds1Year ? monthMembers.filter(m => m.calMonth && m.calMonth.substring(0, 4) === ds1Year) : monthMembers;
+      const ds2Months = ds2Year ? monthMembers.filter(m => m.calMonth && m.calMonth.substring(0, 4) === ds2Year) : monthMembers;
 
-      if (displayTimeVariant === "month" && monthMembers.length > 0) {
-        // Current month — find the month matching today's date, fall back to last available
-        const match = monthMembers.find(m => m.calMonth === currentCalMonth);
-        const member = match || monthMembers[monthMembers.length - 1];
-        primaryTimeId = member.id;
-      } else if (displayTimeVariant === "ytd" && monthMembers.length > 0) {
-        // Year to date — sum all months up to and including the current month
-        primaryTimeIds = monthMembers
-          .filter(m => m.calMonth && m.calMonth <= currentCalMonth)
-          .map(m => m.id);
-        if (primaryTimeIds.length === 0) primaryTimeIds = monthMembers.map(m => m.id);
+      // Resolve default month index (0-based)
+      const defaultMonth = widgetProps.defaultMonth || "current";
+      let defaultMonthIdx;
+      if (defaultMonth === "current") {
+        defaultMonthIdx = new Date().getMonth();
       } else {
-        // Full Year (default) — use year-level node if available, otherwise sum all months
-        if (yearMembers.length > 0) {
-          primaryTimeId = yearMembers[0].id;
-        } else if (monthMembers.length > 0) {
-          primaryTimeIds = monthMembers.map(m => m.id);
-        }
+        defaultMonthIdx = parseInt(defaultMonth) - 1;
       }
-      const primaryVersion = widgetProps.activeVersion || "public.Actual";
+      this._defaultMonthIdx = defaultMonthIdx;
+
+      // Parse value rows config
+      let valueRowsConfig;
+      try {
+        valueRowsConfig = JSON.parse(widgetProps.valueRows || "[]");
+      } catch (e) { valueRowsConfig = []; }
+      if (valueRowsConfig.length === 0) {
+        valueRowsConfig = [
+          { dataSet: 1, timeVariant: "fullYear", label: "DS1 Full Year" },
+          { dataSet: 2, timeVariant: "fullYear", label: "DS2 Full Year" }
+        ];
+      }
+      this._valueRowsConfig = valueRowsConfig;
+
       const measureDimValue = widgetProps.measureDimValue || null;
 
       // Auto-detect @MeasureDimension value if not configured
@@ -549,6 +591,35 @@
         const mdMembers = VDTDataParser.getMeasureDimensionMembers(dataBinding, parsedMeta);
         if (mdMembers.length > 0) mdValue = mdMembers[0].id;
       }
+
+      // Helper: populate a monthly array from month members for a given version
+      const fillMonthly = (arr, members, measureKey, version) => {
+        let hasData = false;
+        members.forEach(tm => {
+          if (!tm.calMonth) return;
+          const idx = parseInt(tm.calMonth.substring(4)) - 1;
+          if (idx < 0 || idx >= 12) return;
+          const val = VDTDataParser.getNodeValue(dataBinding.data, parsedMeta, measureKey, mdValue, version, tm.id);
+          if (val) { arr[idx] = val.value; hasData = true; }
+        });
+        return hasData;
+      };
+
+      // Helper: get full year value (year-level row or sum of months)
+      const getFullYear = (members, yearMems, measureKey, version, year) => {
+        // Try year-level row first
+        if (yearMems.length > 0 && year) {
+          const ym = yearMems.find(y => y.year === year || y.id.indexOf("[" + year + "]") >= 0);
+          if (ym) {
+            const val = VDTDataParser.getNodeValue(dataBinding.data, parsedMeta, measureKey, mdValue, version, ym.id);
+            if (val) return val;
+          }
+        }
+        // Fall back to summing months
+        const ids = members.map(m => m.id);
+        if (ids.length > 0) return VDTDataParser.aggregateNodeValues(dataBinding.data, parsedMeta, measureKey, mdValue, version, ids);
+        return null;
+      };
 
       // Build nodes from config
       const nodeMap = {};
@@ -564,13 +635,20 @@
           threshold: "neutral",
           baseValue: 0,
           value: 0,
-          monthlyOrig: new Array(12).fill(0),
-          monthlyBase: new Array(12).fill(0),
-          monthlyAdj: new Array(12).fill(0),
-          monthly: new Array(12).fill(0),
+          ds1: {
+            fullYear: 0, monthValue: 0,
+            monthlyOrig: new Array(12).fill(0),
+            monthlyBase: new Array(12).fill(0),
+            monthlyAdj: new Array(12).fill(0),
+            monthly: new Array(12).fill(0)
+          },
+          ds2: {
+            fullYear: 0, monthValue: 0,
+            monthly: new Array(12).fill(0)
+          },
+          displayRows: [],
           sliderPct: 0,
           changeLog: [],
-          comparisons: [],
           sparkTrend: "neutral",
           sparkPath: "M0,24 L17,24 L34,24 L51,24 L68,24 L85,24 L102,24 L120,24",
           children: [],
@@ -583,121 +661,47 @@
         const node = nodeMap[id];
         if (!node.accountId) continue;
 
-        // Find the measures_N key for this account
         const measureKey = VDTDataParser.findMeasureKeyByAccountId(parsedMeta, node.accountId);
         if (!measureKey) continue;
         node.measureKey = measureKey;
 
-        // Get primary value based on display time variant
-        let primaryVal = null;
-        if (primaryTimeIds && primaryTimeIds.length > 0) {
-          // Aggregate across multiple time periods (YTD or fullYear without year-level row)
-          primaryVal = VDTDataParser.aggregateNodeValues(
-            dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, primaryTimeIds
-          );
+        // DS1: populate monthly and full year
+        const ds1HasMonthly = fillMonthly(node.ds1.monthlyOrig, ds1Months, measureKey, ds1Version);
+        if (ds1HasMonthly) {
+          node.ds1.monthlyBase = node.ds1.monthlyOrig.slice();
+          node.ds1.monthly = node.ds1.monthlyOrig.slice();
+          node.ds1.fullYear = node.ds1.monthly.reduce((a, b) => a + b, 0);
+          node.ds1.monthValue = node.ds1.monthly[defaultMonthIdx] || 0;
         } else {
-          primaryVal = VDTDataParser.getNodeValue(
-            dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, primaryTimeId
-          );
-        }
-        if (primaryVal) {
-          node.baseValue = primaryVal.value;
-          node.value = primaryVal.value;
-          node.unit = primaryVal.unit || node.unit;
-        }
-
-        // Get monthly values — try month-level first, then aggregate from days, then distribute from total
-        node.monthlyOrig = new Array(12).fill(0);
-        node.monthlyBase = new Array(12).fill(0);
-        node.monthly = new Array(12).fill(0);
-        node.monthlyAdj = new Array(12).fill(0);
-
-        let hasMonthlyData = false;
-
-        // Strategy 1: Direct month-level data
-        if (monthMembers.length > 0) {
-          monthMembers.forEach(tm => {
-            if (!tm.calMonth) return;
-            const monthIdx = parseInt(tm.calMonth.substring(4)) - 1;
-            if (monthIdx < 0 || monthIdx >= 12) return;
-            const val = VDTDataParser.getNodeValue(
-              dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, tm.id
-            );
-            if (val) {
-              node.monthlyOrig[monthIdx] = val.value;
-              node.monthlyBase[monthIdx] = val.value;
-              node.monthly[monthIdx] = val.value;
-              hasMonthlyData = true;
-            }
-          });
-        }
-
-        // Strategy 2: Aggregate day-level data into months
-        if (!hasMonthlyData && dayMembers.length > 0) {
-          dayMembers.forEach(dm => {
-            if (!dm.id) return;
-            // Extract month from day-level ID: parent is month, or parse date from ID
-            const monthIdx = this._extractMonthFromDay(dm);
-            if (monthIdx < 0 || monthIdx >= 12) return;
-            const val = VDTDataParser.getNodeValue(
-              dataBinding.data, parsedMeta, measureKey, mdValue, primaryVersion, dm.id
-            );
-            if (val) {
-              node.monthlyOrig[monthIdx] += val.value;
-              node.monthlyBase[monthIdx] += val.value;
-              node.monthly[monthIdx] += val.value;
-              hasMonthlyData = true;
-            }
-          });
-        }
-
-        // Strategy 3: Distribute aggregate value evenly across 12 months
-        if (!hasMonthlyData && primaryVal && primaryVal.value !== 0) {
-          const perMonth = Math.round(primaryVal.value / 12);
-          for (let i = 0; i < 12; i++) {
-            node.monthlyOrig[i] = perMonth;
-            node.monthlyBase[i] = perMonth;
-            node.monthly[i] = perMonth;
+          const fyVal = getFullYear(ds1Months, yearMembers, measureKey, ds1Version, ds1Year);
+          if (fyVal) {
+            node.ds1.fullYear = fyVal.value;
+            node.unit = fyVal.unit || node.unit;
           }
-          // Remainder in last month so sum is exact
-          const remainder = primaryVal.value - perMonth * 12;
-          node.monthlyOrig[11] += remainder;
-          node.monthlyBase[11] += remainder;
-          node.monthly[11] += remainder;
         }
 
-        // Populate comparison values
-        const compConfigs = widgetProps.comparisons || [];
-        node.comparisons = compConfigs.map(comp => {
-          if (!comp.timePeriod || !comp.label) return { label: comp.label || "", refValue: 0 };
-
-          const compVersion = comp.version || primaryVersion;
-          const compTimeIds = VDTDataParser.resolveTimePeriod(comp.timePeriod, monthMembers, primaryTimeId);
-          let refValue = 0;
-
-          if (compTimeIds.length === 1) {
-            const cv = VDTDataParser.getNodeValue(dataBinding.data, parsedMeta, measureKey, mdValue, compVersion, compTimeIds[0]);
-            if (cv) refValue = cv.value;
-          } else if (compTimeIds.length > 1) {
-            const ca = VDTDataParser.aggregateNodeValues(dataBinding.data, parsedMeta, measureKey, mdValue, compVersion, compTimeIds);
-            if (ca) refValue = ca.value;
+        // DS2: populate monthly and full year (if configured)
+        if (ds2Version) {
+          const ds2HasMonthly = fillMonthly(node.ds2.monthly, ds2Months, measureKey, ds2Version);
+          if (ds2HasMonthly) {
+            node.ds2.fullYear = node.ds2.monthly.reduce((a, b) => a + b, 0);
+            node.ds2.monthValue = node.ds2.monthly[defaultMonthIdx] || 0;
+          } else {
+            const fyVal = getFullYear(ds2Months, yearMembers, measureKey, ds2Version, ds2Year);
+            if (fyVal) node.ds2.fullYear = fyVal.value;
           }
-
-          return { label: comp.label, refValue: refValue, timePeriod: comp.timePeriod };
-        });
-
-        // If no comparisons configured, add empty defaults
-        if (node.comparisons.length === 0) {
-          node.comparisons = [{ label: "PY", refValue: 0 }, { label: "Month PY", refValue: 0 }];
         }
-      }
 
-      // Also give calculated (parent) nodes default comparison labels if they have none
-      for (const id in nodeMap) {
-        const node = nodeMap[id];
-        if (!node.accountId && node.comparisons.length === 0) {
-          node.comparisons = [{ label: "PY", refValue: 0 }, { label: "Month PY", refValue: 0 }];
+        // Detect unit from DS1 if not already set
+        if (!node.unit) {
+          const anyVal = VDTDataParser.getNodeValue(dataBinding.data, parsedMeta, measureKey, mdValue, ds1Version, ds1Months[0]?.id);
+          if (anyVal) node.unit = anyVal.unit || "";
         }
+
+        // Build display rows
+        node.displayRows = this._buildDisplayRows(node, valueRowsConfig);
+        node.value = node.displayRows.length > 0 ? node.displayRows[0].value : node.ds1.fullYear;
+        node.baseValue = node.value;
       }
 
       // Wire up parent-child relationships
@@ -716,20 +720,17 @@
         if (!allChildIds.has(id)) { root = nodeMap[id]; break; }
       }
 
-      // Recalculate computed nodes
+      // Recalculate computed nodes (propagates both ds1 and ds2)
       if (root) this.recalcParents(root);
 
-      // Propagate comparisons up to calculated parent nodes
-      if (root) this._propagateComparisons(root);
-
-      // Determine thresholds
+      // Determine thresholds (DS1 fullYear vs DS2 fullYear)
       if (root) this._updateThresholds(root);
 
-      // Store planning context for write-back
+      // Store planning context for write-back (uses DS1)
       this._planningContext = {
         parsedMeta,
-        monthMembers,
-        primaryVersion,
+        monthMembers: ds1Months,
+        primaryVersion: ds1Version,
         mdValue,
         accountDimId: parsedMeta.accounts ? Object.values(parsedMeta.accounts)[0]?.sacId?.match(/^\[([^\]]+)\]/)?.[1] || "Account" : "Account",
         versionDimId: parsedMeta.versionDimKey ? (parsedMeta.dimensions[parsedMeta.versionDimKey]?.id || "Version") : "Version",
@@ -739,6 +740,15 @@
       this.treeData = root;
       this._buildIndex(root);
       return root;
+    }
+
+    // Build display rows for a node based on valueRows config
+    _buildDisplayRows(node, valueRowsConfig) {
+      return (valueRowsConfig || this._valueRowsConfig || []).map(rowDef => {
+        const ds = rowDef.dataSet === 2 ? node.ds2 : node.ds1;
+        const val = rowDef.timeVariant === "month" ? ds.monthValue : ds.fullYear;
+        return { label: rowDef.label, value: val, dataSet: rowDef.dataSet, timeVariant: rowDef.timeVariant };
+      });
     }
 
     // Build tree from static demo data (no data binding)
@@ -780,12 +790,14 @@
       demo.nodes.forEach(n => {
         nodeMap[n.id] = n;
         n.baseValue = 0; n.value = 0; n.threshold = "neutral";
-        n.monthlyOrig = new Array(12).fill(0);
-        n.monthlyBase = new Array(12).fill(0);
-        n.monthlyAdj = new Array(12).fill(0);
-        n.monthly = new Array(12).fill(0);
+        n.ds1 = {
+          fullYear: 0, monthValue: 0,
+          monthlyOrig: new Array(12).fill(0), monthlyBase: new Array(12).fill(0),
+          monthlyAdj: new Array(12).fill(0), monthly: new Array(12).fill(0)
+        };
+        n.ds2 = { fullYear: 0, monthValue: 0, monthly: new Array(12).fill(0) };
+        n.displayRows = [];
         n.sliderPct = 0; n.changeLog = [];
-        n.comparisons = (n.comparisons || []).map(c => ({ label: c.label, refValue: 0 }));
         n.sparkTrend = "neutral";
         n.sparkPath = "M0,24 L17,24 L34,24 L51,24 L68,24 L85,24 L102,24 L120,24";
         n.children = [];
@@ -795,8 +807,14 @@
         const node = nodeMap[id];
         const v = vals[id];
         node.baseValue = v.value; node.value = v.value;
+        node.ds1.fullYear = v.value;
         this._initMonthly(node, v.value);
-        v.comps.forEach((cv, i) => { if (node.comparisons[i]) node.comparisons[i].refValue = cv; });
+        // Set DS2 from demo comparison values
+        if (v.comps[0]) { node.ds2.fullYear = v.comps[0]; }
+        node.displayRows = [
+          { label: "Current", value: v.value, dataSet: 1, timeVariant: "fullYear" },
+          { label: "Comparison", value: v.comps[0] || 0, dataSet: 2, timeVariant: "fullYear" }
+        ];
       }
 
       // Wire children
@@ -815,10 +833,10 @@
 
     _initMonthly(node, yearValue) {
       const m = Math.round(yearValue / 12);
-      for (let i = 0; i < 12; i++) { node.monthlyOrig[i] = m; node.monthlyBase[i] = m; node.monthly[i] = m; }
-      node.monthlyOrig[11] += (yearValue - m * 12);
-      node.monthlyBase[11] = node.monthlyOrig[11];
-      node.monthly[11] = node.monthlyOrig[11];
+      for (let i = 0; i < 12; i++) { node.ds1.monthlyOrig[i] = m; node.ds1.monthlyBase[i] = m; node.ds1.monthly[i] = m; }
+      node.ds1.monthlyOrig[11] += (yearValue - m * 12);
+      node.ds1.monthlyBase[11] = node.ds1.monthlyOrig[11];
+      node.ds1.monthly[11] = node.ds1.monthlyOrig[11];
     }
 
     // Store parsed metadata for external access (e.g., populating styling panel dropdowns)
@@ -853,11 +871,29 @@
     }
 
     recomputeMonthly(node) {
+      // Simulation applies to DS1 only
       for (let i = 0; i < 12; i++) {
-        node.monthlyBase[i] = Math.round(node.monthlyOrig[i] * (1 + node.sliderPct / 100));
-        node.monthly[i] = node.monthlyBase[i] + node.monthlyAdj[i];
+        node.ds1.monthlyBase[i] = Math.round(node.ds1.monthlyOrig[i] * (1 + node.sliderPct / 100));
+        node.ds1.monthly[i] = node.ds1.monthlyBase[i] + node.ds1.monthlyAdj[i];
       }
-      node.value = node.monthly.reduce((a, b) => a + b, 0);
+      node.ds1.fullYear = node.ds1.monthly.reduce((a, b) => a + b, 0);
+      node.ds1.monthValue = node.ds1.monthly[this._defaultMonthIdx] || 0;
+      // Recompute display rows and primary value
+      node.displayRows = this._buildDisplayRows(node);
+      node.value = node.displayRows.length > 0 ? node.displayRows[0].value : node.ds1.fullYear;
+    }
+
+    // Helper: apply operator across an array of child values
+    _applyOp(op, childValues) {
+      if (childValues.length === 0) return 0;
+      let result = childValues[0];
+      for (let j = 1; j < childValues.length; j++) {
+        if (op === "+") result += childValues[j];
+        else if (op === "\u2212") result -= childValues[j];
+        else if (op === "\u00d7") result *= childValues[j];
+        else if (op === "\u00f7" && childValues[j] !== 0) result /= childValues[j];
+      }
+      return result;
     }
 
     recalcParents(root) {
@@ -865,79 +901,34 @@
       root.children.forEach(c => this.recalcParents(c));
       if (!root.anchor) return;
       const op = (root.anchor.type === "data") ? "+" : root.anchor.symbol;
+
+      // Propagate DS1
       for (let m = 0; m < 12; m++) {
-        if (op === "+") {
-          root.monthly[m] = 0;
-          root.children.forEach(c => { root.monthly[m] += c.monthly[m]; });
-        } else if (op === "\u2212") {
-          root.monthly[m] = root.children[0].monthly[m];
-          for (let j = 1; j < root.children.length; j++) root.monthly[m] -= root.children[j].monthly[m];
-        } else if (op === "\u00d7") {
-          root.monthly[m] = root.children[0].monthly[m];
-          for (let j = 1; j < root.children.length; j++) root.monthly[m] *= root.children[j].monthly[m];
-        } else if (op === "\u00f7") {
-          root.monthly[m] = root.children[0].monthly[m];
-          for (let j = 1; j < root.children.length; j++) {
-            if (root.children[j].monthly[m] !== 0) root.monthly[m] /= root.children[j].monthly[m];
-          }
-        }
+        root.ds1.monthly[m] = this._applyOp(op, root.children.map(c => c.ds1.monthly[m]));
       }
-      root.value = root.monthly.reduce((a, b) => a + b, 0);
+      root.ds1.fullYear = root.ds1.monthly.reduce((a, b) => a + b, 0);
+      root.ds1.monthValue = root.ds1.monthly[this._defaultMonthIdx] || 0;
+
+      // Propagate DS2
+      for (let m = 0; m < 12; m++) {
+        root.ds2.monthly[m] = this._applyOp(op, root.children.map(c => c.ds2.monthly[m]));
+      }
+      root.ds2.fullYear = root.ds2.monthly.reduce((a, b) => a + b, 0);
+      root.ds2.monthValue = root.ds2.monthly[this._defaultMonthIdx] || 0;
+
+      // Recompute display rows and primary value
+      root.displayRows = this._buildDisplayRows(root);
+      root.value = root.displayRows.length > 0 ? root.displayRows[0].value : root.ds1.fullYear;
       root.baseValue = root.baseValue || root.value;
-    }
-
-    // Propagate comparison values from children up to calculated parent nodes
-    _propagateComparisons(node) {
-      if (!node) return;
-      // Recurse children first (bottom-up)
-      if (node.children) node.children.forEach(c => this._propagateComparisons(c));
-
-      // Only calculate for parent nodes with children and no accountId
-      if (!node.children || node.children.length === 0 || node.accountId) return;
-
-      const op = node.anchor ? (node.anchor.type === "data" ? "+" : node.anchor.symbol) : "+";
-
-      // Determine how many comparison slots exist from children
-      const maxComps = Math.max(...node.children.map(c => c.comparisons ? c.comparisons.length : 0), 0);
-      if (maxComps === 0) return;
-
-      node.comparisons = [];
-      for (let ci = 0; ci < maxComps; ci++) {
-        const label = node.children[0].comparisons[ci] ? node.children[0].comparisons[ci].label : "";
-        let refValue = 0;
-
-        if (op === "+") {
-          node.children.forEach(c => {
-            if (c.comparisons[ci]) refValue += c.comparisons[ci].refValue;
-          });
-        } else if (op === "\u2212") {
-          refValue = node.children[0].comparisons[ci] ? node.children[0].comparisons[ci].refValue : 0;
-          for (let j = 1; j < node.children.length; j++) {
-            if (node.children[j].comparisons[ci]) refValue -= node.children[j].comparisons[ci].refValue;
-          }
-        } else if (op === "\u00d7") {
-          refValue = node.children[0].comparisons[ci] ? node.children[0].comparisons[ci].refValue : 0;
-          for (let j = 1; j < node.children.length; j++) {
-            if (node.children[j].comparisons[ci]) refValue *= node.children[j].comparisons[ci].refValue;
-          }
-        } else if (op === "\u00f7") {
-          refValue = node.children[0].comparisons[ci] ? node.children[0].comparisons[ci].refValue : 0;
-          for (let j = 1; j < node.children.length; j++) {
-            const div = node.children[j].comparisons[ci] ? node.children[j].comparisons[ci].refValue : 0;
-            if (div !== 0) refValue /= div;
-          }
-        }
-
-        node.comparisons.push({ label: label, refValue: refValue });
-      }
     }
 
     _updateThresholds(node) {
       if (!node) return;
-      const pct = node.baseValue !== 0 ? ((node.value - node.baseValue) / Math.abs(node.baseValue)) * 100 : 0;
-      // Use comparison to determine threshold for initial state
-      if (node.comparisons.length > 0 && node.comparisons[0].refValue !== 0) {
-        const compPct = ((node.value - node.comparisons[0].refValue) / Math.abs(node.comparisons[0].refValue)) * 100;
+      // Compare DS1 fullYear vs DS2 fullYear for threshold coloring
+      const ds1FY = node.ds1.fullYear;
+      const ds2FY = node.ds2.fullYear;
+      if (ds2FY !== 0) {
+        const compPct = ((ds1FY - ds2FY) / Math.abs(ds2FY)) * 100;
         if (compPct >= 5) node.threshold = "positive";
         else if (compPct >= 0) node.threshold = "warning";
         else if (compPct >= -5) node.threshold = "warning";
@@ -994,8 +985,8 @@
           measureKey: node.measureKey,
           originalValue: node.baseValue,
           newValue: node.value,
-          monthlyOrig: node.monthlyOrig.slice(),
-          monthly: node.monthly.slice()
+          monthlyOrig: node.ds1.monthlyOrig.slice(),
+          monthly: node.ds1.monthly.slice()
         });
       }
       if (node.children) node.children.forEach(c => this._collectChanges(c, changes));
@@ -1090,11 +1081,21 @@
     }
 
     renderNode(node) {
-      const compHtml = node.comparisons.map(c => {
-        const v = this.computeVariance(node.value, c.refValue, node.unit);
-        return `<div class="vdt-node__comp-group">
-          <div class="vdt-node__comp-row"><span class="vdt-node__comp-label">${c.label}</span><span class="vdt-node__comp-value">${v.refDisplay}</span></div>
-          <div class="vdt-node__comp-row"><span class="vdt-node__comp-label">${c.label} Var</span><span class="vdt-node__variance vdt-node__variance--${v.dir}"><span class="vdt-node__variance-arrow">${v.arrow}</span><span>${v.varDisplay}</span><span>(${v.pctDisplay})</span></span></div>
+      // Build display rows HTML (replaces old comparison HTML)
+      const rowsHtml = (node.displayRows || []).map((row, idx) => {
+        // Find a paired row in the opposite data set with same timeVariant for variance
+        const pairRow = node.displayRows.find((r, j) =>
+          j !== idx && r.dataSet !== row.dataSet && r.timeVariant === row.timeVariant
+        );
+        let varHtml = "";
+        if (pairRow) {
+          const v = this.computeVariance(row.value, pairRow.value, node.unit);
+          varHtml = `<span class="vdt-node__variance vdt-node__variance--${v.dir}"><span class="vdt-node__variance-arrow">${v.arrow}</span><span>${v.varDisplay}</span><span>(${v.pctDisplay})</span></span>`;
+        }
+        return `<div class="vdt-node__value-row" data-row-idx="${idx}" data-node-id="${node.id}">
+          <span class="vdt-node__row-label">${row.label}</span>
+          <span class="vdt-node__row-value">${this.fmt(row.value)} ${node.unit}</span>
+          ${varHtml}
         </div>`;
       }).join("");
 
@@ -1117,7 +1118,7 @@
       if (node.inputEnabled) {
         let monthRows = "";
         for (let i = 0; i < 12; i++) {
-          monthRows += `<tr><td><span class="vdt-node__detail-month-label">${MONTHS[i]}</span></td><td><input type="text" class="vdt-node__detail-month-input" data-month-input="${node.id}" data-month-idx="${i}" value="${this.fmt(node.monthly[i])}" /></td><td><span class="vdt-node__detail-month-delta vdt-node__detail-month-delta--neutral" data-month-delta="${node.id}" data-month-idx="${i}">-</span></td></tr>`;
+          monthRows += `<tr><td><span class="vdt-node__detail-month-label">${MONTHS[i]}</span></td><td><input type="text" class="vdt-node__detail-month-input" data-month-input="${node.id}" data-month-idx="${i}" value="${this.fmt(node.ds1.monthly[i])}" /></td><td><span class="vdt-node__detail-month-delta vdt-node__detail-month-delta--neutral" data-month-delta="${node.id}" data-month-idx="${i}">-</span></td></tr>`;
         }
         detailHtml = `<div class="vdt-node__detail-panel" data-detail-panel="${node.id}"><div class="vdt-node__detail-header"><span class="vdt-node__detail-title">Monthly Breakdown</span><span class="vdt-node__detail-total" data-detail-total="${node.id}">Total: ${this.fmt(node.value)} ${node.unit}</span></div><table class="vdt-node__detail-table"><thead><tr><th>Month</th><th>Value</th><th>Change</th></tr></thead><tbody>${monthRows}</tbody></table></div>`;
       }
@@ -1125,7 +1126,7 @@
       // Design mode buttons (hidden until .vdt-design-mode is set on root)
       const designHtml = `<button class="vdt-design-add-child" data-design-add="${node.id}" title="Add child node">+</button><button class="vdt-design-edit" data-design-edit="${node.id}" title="Edit node">&#9998;</button><button class="vdt-design-del" data-design-del="${node.id}" title="Delete node">&times;</button>`;
 
-      return `<div class="vdt-node-wrap" data-node-id="${node.id}"><div class="vdt-node"><div class="vdt-node__threshold vdt-node__threshold--${node.threshold}"></div><div class="vdt-node__header"><span class="vdt-node__measure-name">${node.name}</span><span class="vdt-node__measure-value"><span class="vdt-node__value">${this.fmt(node.value)}</span><span class="vdt-node__unit">${node.unit}</span></span></div><div class="vdt-node__body"><div class="vdt-node__microchart"><svg viewBox="0 0 120 48" preserveAspectRatio="none"><path class="sparkline-area sparkline-area--${node.sparkTrend}" d="${this.areaPath(node.sparkPath)}"/><path class="sparkline sparkline--${node.sparkTrend}" d="${node.sparkPath}"/></svg></div><div class="vdt-node__comparison">${compHtml}</div></div>${inputHtml}</div>${detailHtml}${anchorHtml}${toggleHtml}${designHtml}<div class="vdt-design-popup" data-design-popup="${node.id}"></div></div>`;
+      return `<div class="vdt-node-wrap" data-node-id="${node.id}"><div class="vdt-node"><div class="vdt-node__threshold vdt-node__threshold--${node.threshold}"></div><div class="vdt-node__header"><span class="vdt-node__measure-name">${node.name}</span><span class="vdt-node__measure-value"><span class="vdt-node__value">${this.fmt(node.value)}</span><span class="vdt-node__unit">${node.unit}</span></span></div><div class="vdt-node__body"><div class="vdt-node__microchart"><svg viewBox="0 0 120 48" preserveAspectRatio="none"><path class="sparkline-area sparkline-area--${node.sparkTrend}" d="${this.areaPath(node.sparkPath)}"/><path class="sparkline sparkline--${node.sparkTrend}" d="${node.sparkPath}"/></svg></div><div class="vdt-node__display-rows">${rowsHtml}</div></div>${inputHtml}</div>${detailHtml}${anchorHtml}${toggleHtml}${designHtml}<div class="vdt-design-popup" data-design-popup="${node.id}"></div></div>`;
     }
 
     renderTree(node) {
@@ -1248,7 +1249,6 @@
 
     // ── Data Binding Setter (SAC delivers data here) ──
     set dataBinding(value) {
-      console.log("VDT: dataBinding setter called", { state: value?.state, hasMetadata: !!value?.metadata, metadataKeys: value?.metadata ? Object.keys(value.metadata) : [], dataLength: value?.data?.length, raw: value });
       this._dataBinding = value;
       this._publishModelInfo();
       this.render();
@@ -1261,12 +1261,10 @@
     // Extract model info from data binding and populate config panel + styling panel
     _publishModelInfo() {
       const db = this._dataBinding;
-      console.log("VDT: _publishModelInfo", { hasDb: !!db, state: db?.state });
       if (!db || db.state !== "success") return;
 
       try {
         const parsedMeta = VDTDataParser.parseMetadata(db.metadata, this._props);
-        console.log("VDT: parsedMeta", { dims: Object.keys(parsedMeta.dimensions), accountCount: Object.keys(parsedMeta.accounts).length });
         this._parsedMeta = parsedMeta;
 
         // Build dimensions list (excluding @MeasureDimension)
@@ -1287,8 +1285,14 @@
         // Build account members
         const accounts = VDTDataParser.getAccountMembers(parsedMeta);
 
+        // Extract available years from month members
+        const monthMems = VDTDataParser.getTimeMembers(db, parsedMeta, "month");
+        const yearSet = new Set();
+        monthMems.forEach(m => { if (m.calMonth) yearSet.add(m.calMonth.substring(0, 4)); });
+        const years = Array.from(yearSet).sort();
+
         // Populate config panel dropdowns (main widget - works in design mode)
-        this._populateConfigDropdowns(dims, versions, mdMembers, accounts);
+        this._populateConfigDropdowns(dims, versions, mdMembers, accounts, years);
 
         // Also publish as JSON string properties for the styling panel (backward compat)
         this.dispatchEvent(new CustomEvent("propertiesChanged", {
@@ -1307,7 +1311,7 @@
     }
 
     // Populate the in-widget config panel dropdowns and builder account list
-    _populateConfigDropdowns(dims, versions, mdMembers, accounts) {
+    _populateConfigDropdowns(dims, versions, mdMembers, accounts, years) {
       const root = this._shadowRoot;
       this._accountList = accounts;
 
@@ -1326,19 +1330,39 @@
         sel.value = currentVal || this._getConfigPropForSelect(selId);
       });
 
-      // Version dropdown
-      const verSel = root.getElementById("cfgActiveVersion");
-      if (verSel) {
-        const currentVal = verSel.value;
-        verSel.innerHTML = '<option value="">(first available)</option>';
+      // DS1/DS2 Version dropdowns
+      ["cfgDs1Version", "cfgDs2Version"].forEach(selId => {
+        const sel = root.getElementById(selId);
+        if (!sel) return;
+        const currentVal = sel.value;
+        const isDs2 = selId === "cfgDs2Version";
+        sel.innerHTML = isDs2 ? '<option value="">(none)</option>' : '<option value="">(first available)</option>';
         versions.forEach(v => {
           const opt = document.createElement("option");
           opt.value = v.id;
           opt.textContent = v.label || v.id;
-          verSel.appendChild(opt);
+          sel.appendChild(opt);
         });
-        verSel.value = currentVal || this._props.activeVersion || "";
-      }
+        const savedVal = isDs2 ? this._props.ds2Version : (this._props.ds1Version || this._props.activeVersion);
+        sel.value = currentVal || savedVal || "";
+      });
+
+      // DS1/DS2 Year dropdowns
+      ["cfgDs1Year", "cfgDs2Year"].forEach(selId => {
+        const sel = root.getElementById(selId);
+        if (!sel) return;
+        const currentVal = sel.value;
+        const isDs2 = selId === "cfgDs2Year";
+        sel.innerHTML = isDs2 ? '<option value="">(none)</option>' : '<option value="">(all available)</option>';
+        (years || []).forEach(y => {
+          const opt = document.createElement("option");
+          opt.value = y;
+          opt.textContent = y;
+          sel.appendChild(opt);
+        });
+        const savedVal = isDs2 ? this._props.ds2Year : this._props.ds1Year;
+        sel.value = currentVal || savedVal || "";
+      });
 
       // Measure dropdown
       const mdSel = root.getElementById("cfgMeasure");
@@ -1356,6 +1380,9 @@
 
       // Populate account dropdown in builder
       this._populateBuilderAccountDropdown();
+
+      // Render value rows editor
+      this._renderValueRowsEditor();
 
       this._updateConfigDimStatus();
     }
@@ -1558,18 +1585,28 @@
         this._root.classList.remove("vdt-design-mode");
       });
 
-      // Dimension dropdowns
-      ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgDisplayTimeVariant", "cfgActiveVersion", "cfgMeasure"].forEach(selId => {
+      // Dimension + data set dropdowns
+      ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgMeasure",
+       "cfgDs1Version", "cfgDs1Year", "cfgDs2Version", "cfgDs2Year", "cfgDefaultMonth"].forEach(selId => {
         root.getElementById(selId).addEventListener("change", () => {
           this._applyConfigDimensions();
         });
       });
 
-      // Restore time granularity and display time variant from saved props
+      // Restore saved props
       const granSel = root.getElementById("cfgTimeGranularity");
       if (this._props.timeGranularity) granSel.value = this._props.timeGranularity;
-      const dtvSel = root.getElementById("cfgDisplayTimeVariant");
-      if (this._props.displayTimeVariant) dtvSel.value = this._props.displayTimeVariant;
+      if (this._props.defaultMonth) root.getElementById("cfgDefaultMonth").value = this._props.defaultMonth;
+
+      // Value rows editor
+      this._renderValueRowsEditor();
+      root.getElementById("cfgAddValueRow").addEventListener("click", () => {
+        const rows = this._getValueRowsFromEditor();
+        if (rows.length >= 4) return;
+        rows.push({ dataSet: 1, timeVariant: "fullYear", label: "New Row" });
+        this._renderValueRowsEditor(rows);
+        this._applyConfigDimensions();
+      });
 
       // Add root-level node
       root.getElementById("builderAddBtn").addEventListener("click", () => {
@@ -1689,20 +1726,85 @@
       });
     }
 
-    _applyConfigDimensions() {
+    _getConfigProps() {
       const root = this._shadowRoot;
-      const props = {
+      return {
         versionDimension: root.getElementById("cfgVersionDim").value,
         timeDimension: root.getElementById("cfgTimeDim").value,
         timeGranularity: root.getElementById("cfgTimeGranularity").value,
-        displayTimeVariant: root.getElementById("cfgDisplayTimeVariant").value,
-        activeVersion: root.getElementById("cfgActiveVersion").value,
-        measureDimValue: root.getElementById("cfgMeasure").value
+        measureDimValue: root.getElementById("cfgMeasure").value,
+        ds1Version: root.getElementById("cfgDs1Version").value,
+        ds1Year: root.getElementById("cfgDs1Year").value,
+        ds2Version: root.getElementById("cfgDs2Version").value,
+        ds2Year: root.getElementById("cfgDs2Year").value,
+        defaultMonth: root.getElementById("cfgDefaultMonth").value,
+        valueRows: JSON.stringify(this._getValueRowsFromEditor())
       };
+    }
+
+    _applyConfigDimensions() {
+      const props = this._getConfigProps();
       this.dispatchEvent(new CustomEvent("propertiesChanged", {
         detail: { properties: props }
       }));
       this._updateConfigDimStatus();
+    }
+
+    // Value rows editor
+    _renderValueRowsEditor(rows) {
+      const container = this._shadowRoot.getElementById("cfgValueRows");
+      if (!container) return;
+      if (!rows) {
+        try { rows = JSON.parse(this._props.valueRows || "[]"); } catch (e) { rows = []; }
+      }
+      if (rows.length === 0) {
+        rows = [
+          { dataSet: 1, timeVariant: "fullYear", label: "DS1 Full Year" },
+          { dataSet: 2, timeVariant: "fullYear", label: "DS2 Full Year" }
+        ];
+      }
+      container.innerHTML = rows.map((r, i) => `
+        <div class="vdt-config-value-row" data-row-idx="${i}" style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+          <select data-vr-ds="${i}" style="width:60px;font-size:11px;padding:2px;">
+            <option value="1" ${r.dataSet === 1 ? "selected" : ""}>DS1</option>
+            <option value="2" ${r.dataSet === 2 ? "selected" : ""}>DS2</option>
+          </select>
+          <select data-vr-tv="${i}" style="width:80px;font-size:11px;padding:2px;">
+            <option value="fullYear" ${r.timeVariant === "fullYear" ? "selected" : ""}>Full Year</option>
+            <option value="month" ${r.timeVariant === "month" ? "selected" : ""}>Month</option>
+          </select>
+          <input type="text" data-vr-label="${i}" value="${r.label || ""}" style="flex:1;font-size:11px;padding:2px 4px;" placeholder="Label" />
+          <button data-vr-del="${i}" style="font-size:11px;padding:1px 6px;cursor:pointer;">&times;</button>
+        </div>
+      `).join("");
+
+      // Bind change/delete events
+      container.querySelectorAll("select, input").forEach(el => {
+        el.addEventListener("change", () => this._applyConfigDimensions());
+      });
+      container.querySelectorAll("[data-vr-del]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-vr-del"));
+          const current = this._getValueRowsFromEditor();
+          current.splice(idx, 1);
+          this._renderValueRowsEditor(current);
+          this._applyConfigDimensions();
+        });
+      });
+    }
+
+    _getValueRowsFromEditor() {
+      const container = this._shadowRoot.getElementById("cfgValueRows");
+      if (!container) return [];
+      const rows = [];
+      container.querySelectorAll(".vdt-config-value-row").forEach(el => {
+        const idx = el.getAttribute("data-row-idx");
+        const ds = parseInt(el.querySelector(`[data-vr-ds="${idx}"]`)?.value || "1");
+        const tv = el.querySelector(`[data-vr-tv="${idx}"]`)?.value || "fullYear";
+        const label = el.querySelector(`[data-vr-label="${idx}"]`)?.value || "";
+        rows.push({ dataSet: ds, timeVariant: tv, label: label });
+      });
+      return rows;
     }
 
     _applyFullConfig() {
@@ -1717,12 +1819,7 @@
       const config = this._builderToConfig();
       const treeConfig = JSON.stringify(config);
       const props = {
-        versionDimension: root.getElementById("cfgVersionDim").value,
-        timeDimension: root.getElementById("cfgTimeDim").value,
-        timeGranularity: root.getElementById("cfgTimeGranularity").value,
-        displayTimeVariant: root.getElementById("cfgDisplayTimeVariant").value,
-        activeVersion: root.getElementById("cfgActiveVersion").value,
-        measureDimValue: root.getElementById("cfgMeasure").value,
+        ...this._getConfigProps(),
         treeConfig: treeConfig
       };
 
@@ -2186,13 +2283,13 @@
 
           const rawVal = e.target.value.replace(/,/g, "");
           const newVal = parseInt(rawVal);
-          if (isNaN(newVal)) { e.target.value = this._renderer.fmt(node.monthly[idx]); return; }
+          if (isNaN(newVal)) { e.target.value = this._renderer.fmt(node.ds1.monthly[idx]); return; }
 
-          const sliderValue = Math.round(node.monthlyOrig[idx] * (1 + node.sliderPct / 100));
-          const prevAdj = node.monthlyAdj[idx];
-          node.monthlyAdj[idx] = newVal - sliderValue;
+          const sliderValue = Math.round(node.ds1.monthlyOrig[idx] * (1 + node.sliderPct / 100));
+          const prevAdj = node.ds1.monthlyAdj[idx];
+          node.ds1.monthlyAdj[idx] = newVal - sliderValue;
 
-          const adjDelta = node.monthlyAdj[idx] - prevAdj;
+          const adjDelta = node.ds1.monthlyAdj[idx] - prevAdj;
           if (Math.abs(adjDelta) >= 1) {
             node.changeLog.push({
               type: "monthly",
@@ -2440,16 +2537,19 @@
         badge.remove();
       }
 
-      // Comparison variances
-      const compGroups = wrap.querySelectorAll(".vdt-node__comp-group");
-      node.comparisons.forEach((c, i) => {
-        if (!compGroups[i]) return;
-        const v = this._renderer.computeVariance(node.value, c.refValue, node.unit);
-        const rows = compGroups[i].querySelectorAll(".vdt-node__comp-row");
-        const valSpan = rows[0] ? rows[0].querySelector(".vdt-node__comp-value") : null;
-        if (valSpan) valSpan.textContent = v.refDisplay;
-        const varSpan = rows[1] ? rows[1].querySelector(".vdt-node__variance") : null;
-        if (varSpan) {
+      // Display rows
+      const rowEls = wrap.querySelectorAll(".vdt-node__value-row");
+      (node.displayRows || []).forEach((row, i) => {
+        if (!rowEls[i]) return;
+        const valSpan = rowEls[i].querySelector(".vdt-node__row-value");
+        if (valSpan) valSpan.textContent = this._renderer.fmt(row.value) + " " + node.unit;
+        // Update variance if paired
+        const varSpan = rowEls[i].querySelector(".vdt-node__variance");
+        const pairRow = node.displayRows.find((r, j) =>
+          j !== i && r.dataSet !== row.dataSet && r.timeVariant === row.timeVariant
+        );
+        if (varSpan && pairRow) {
+          const v = this._renderer.computeVariance(row.value, pairRow.value, node.unit);
           varSpan.className = "vdt-node__variance vdt-node__variance--" + v.dir;
           varSpan.innerHTML = `<span class="vdt-node__variance-arrow">${v.arrow}</span><span>${v.varDisplay}</span><span>(${v.pctDisplay})</span>`;
         }
@@ -2468,12 +2568,12 @@
 
       inputs.forEach(inp => {
         const idx = parseInt(inp.getAttribute("data-month-idx"));
-        if (this._shadowRoot.activeElement !== inp) inp.value = this._renderer.fmt(node.monthly[idx]);
+        if (this._shadowRoot.activeElement !== inp) inp.value = this._renderer.fmt(node.ds1.monthly[idx]);
       });
 
       deltas.forEach(del => {
         const idx = parseInt(del.getAttribute("data-month-idx"));
-        const diff = node.monthly[idx] - node.monthlyOrig[idx];
+        const diff = node.ds1.monthly[idx] - node.ds1.monthlyOrig[idx];
         if (Math.abs(diff) < 1) {
           del.textContent = "-";
           del.className = "vdt-node__detail-month-delta vdt-node__detail-month-delta--neutral";
