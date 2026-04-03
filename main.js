@@ -455,6 +455,11 @@
             <select id="cfgTimeDim"><option value="">(auto-detect)</option></select>
           </div>
           <div class="vdt-config-field">
+            <label>Time Hierarchy</label>
+            <input type="text" id="cfgTimeHierarchy" class="vdt-config-input" placeholder="e.g., YQM" />
+            <div class="vdt-config-hint">Hierarchy ID from the Table's Time dimension (e.g., YQM, YMD). Used for write-back.</div>
+          </div>
+          <div class="vdt-config-field">
             <label>Time Granularity</label>
             <select id="cfgTimeGranularity">
               <option value="month">Month</option>
@@ -820,6 +825,8 @@
       if (root) this._updateThresholds(root, widgetProps);
 
       // Store planning context for write-back (uses DS1)
+      const timeDimId = parsedMeta.timeDimKey ? (parsedMeta.dimensions[parsedMeta.timeDimKey]?.id || "Time") : "Time";
+      const timeHierarchy = widgetProps.timeHierarchy || "";
       this._planningContext = {
         parsedMeta,
         monthMembers: ds1Months,
@@ -829,7 +836,8 @@
         mdValue,
         accountDimId: parsedMeta.accounts ? Object.values(parsedMeta.accounts)[0]?.sacId?.match(/^\[([^\]]+)\]/)?.[1] || "Account" : "Account",
         versionDimId: parsedMeta.versionDimKey ? (parsedMeta.dimensions[parsedMeta.versionDimKey]?.id || "Version") : "Version",
-        timeDimId: parsedMeta.timeDimKey ? (parsedMeta.dimensions[parsedMeta.timeDimKey]?.id || "Time") : "Time"
+        timeDimId,
+        timeHierarchy
       };
 
       this.treeData = root;
@@ -1153,6 +1161,21 @@
       if (node.children) node.children.forEach(c => this._collectChanges(c, changes));
     }
 
+    // Build a full SAC time member ID from a plain ID
+    // e.g., "201701" + hierarchy "YQM" + dim "Time" → "[Time].[YQM].&[201701]"
+    _buildTimeSacId(plainId, ctx) {
+      if (!plainId) return plainId;
+      // Already in full format
+      if (plainId.startsWith("[")) return plainId;
+      const dimId = ctx.timeDimId || "Time";
+      const hier = ctx.timeHierarchy;
+      if (hier) {
+        return "[" + dimId + "].[" + hier + "].&[" + plainId + "]";
+      }
+      // No hierarchy configured — return as-is and hope for the best
+      return plainId;
+    }
+
     _buildWriteBackEntries(changes) {
       const ctx = this._planningContext;
       if (!ctx) return [];
@@ -1182,10 +1205,11 @@
 
           // Use year-level member if available, otherwise fall back to ds1Year
           const yearMember = yearMembers.length > 0 ? yearMembers[0] : null;
+          const rawTimeId = yearMember ? yearMember.id : ctx.ds1Year;
           entries.push({
             accountId: acctInfo.cleanId,
             accountSacId: acctInfo.sacId,
-            timeMemberId: yearMember ? yearMember.id : ctx.ds1Year,
+            timeMemberId: this._buildTimeSacId(rawTimeId, ctx),
             timeLabel: yearMember ? yearMember.label : ctx.ds1Year,
             version: ctx.primaryVersion,
             measureDimValue: ctx.mdValue,
@@ -1214,7 +1238,7 @@
             entries.push({
               accountId: acctInfo.cleanId,
               accountSacId: acctInfo.sacId,
-              timeMemberId: timeMember.id,
+              timeMemberId: this._buildTimeSacId(timeMember.id, ctx),
               timeLabel: timeMember.label,
               version: ctx.primaryVersion,
               measureDimValue: ctx.mdValue,
@@ -1787,9 +1811,15 @@
         });
       });
 
+      // Time hierarchy input change
+      root.getElementById("cfgTimeHierarchy").addEventListener("input", () => {
+        this._applyConfigDimensions();
+      });
+
       // Restore saved props
       const granSel = root.getElementById("cfgTimeGranularity");
       if (this._props.timeGranularity) granSel.value = this._props.timeGranularity;
+      if (this._props.timeHierarchy) root.getElementById("cfgTimeHierarchy").value = this._props.timeHierarchy;
       if (this._props.defaultDisplay) root.getElementById("cfgDefaultDisplay").value = this._props.defaultDisplay;
 
       // Value rows editor
@@ -1926,6 +1956,7 @@
       return {
         versionDimension: root.getElementById("cfgVersionDim").value,
         timeDimension: root.getElementById("cfgTimeDim").value,
+        timeHierarchy: root.getElementById("cfgTimeHierarchy").value.trim(),
         timeGranularity: root.getElementById("cfgTimeGranularity").value,
         measureDimValue: root.getElementById("cfgMeasure").value,
         ds1Version: root.getElementById("cfgDs1Version").value,

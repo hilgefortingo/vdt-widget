@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260403d",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260403e",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260403d",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260403e",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -105,6 +105,11 @@
       "type": "string",
       "default": "",
       "description": "ID of the Time/Date dimension in the model"
+    },
+    "timeHierarchy": {
+      "type": "string",
+      "default": "",
+      "description": "Hierarchy ID for the Time dimension in the Table (e.g., YQM, YMD). Used to build full SAC member IDs for write-back."
     },
     "timeGranularity": {
       "type": "string",
