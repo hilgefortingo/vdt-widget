@@ -2065,10 +2065,27 @@ if (typeof module !== "undefined" && module.exports) {
         // Fetch time hierarchies from the data source
         let timeHierarchies = [];
         try {
-          const timeDimId = this._props.timeDimension || (parsedMeta.timeDimKey ? (parsedMeta.dimensions[parsedMeta.timeDimKey]?.id || "") : "");
+          // Try configured timeDimension first, then auto-detected from parser
+          let timeDimId = this._props.timeDimension || "";
+          if (!timeDimId && parsedMeta.timeDimKey) {
+            const dimInfo = parsedMeta.dimensions[parsedMeta.timeDimKey];
+            timeDimId = dimInfo ? dimInfo.id : "";
+          }
+          // Fallback: scan all dimensions for time-like names
+          if (!timeDimId) {
+            for (const key in parsedMeta.dimensions) {
+              const did = parsedMeta.dimensions[key].id;
+              if (did && (did.toLowerCase().indexOf("time") !== -1 || did.toLowerCase().indexOf("date") !== -1)) {
+                timeDimId = did;
+                break;
+              }
+            }
+          }
+          console.log("VDT: Fetching hierarchies for time dimension:", timeDimId);
           if (timeDimId) {
             const ds = this.dataBindings.getDataBinding("dataBinding").getDataSource();
             const rawHier = ds.getHierarchies(timeDimId);
+            console.log("VDT: Got hierarchies:", rawHier);
             if (rawHier && rawHier.length) {
               timeHierarchies = rawHier.map(h => ({ id: h.id, description: h.description || h.id }));
             }
