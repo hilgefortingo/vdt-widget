@@ -622,6 +622,55 @@ if (typeof module !== "undefined" && module.exports) {
     .vdt-minimap-toggle:hover { background: #e8e8e8; }
     .vdt-minimap-toggle--active { display: none; }
 
+    /* Period panel toggle button */
+    .vdt-period-btn {
+      position: absolute; top: 12px; right: 12px; z-index: 90;
+      height: 32px; border: 1px solid #d9d9d9; background: #fff; border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12); cursor: pointer; padding: 0 10px;
+      display: flex; align-items: center; gap: 6px; font-family: "72", Arial, sans-serif;
+      font-size: 12px; font-weight: 400; color: #32363a;
+    }
+    .vdt-period-btn:hover { background: #e8e8e8; }
+    .vdt-period-btn__icon { font-size: 14px; }
+    .vdt-period-btn__label { white-space: nowrap; }
+    .vdt-period-btn--active { background: #e7f0fa; border-color: #0a6ed1; color: #0a6ed1; }
+
+    /* Period panel */
+    .vdt-period-panel {
+      position: absolute; top: 50px; right: 12px; z-index: 95;
+      width: 280px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 16px; display: none;
+      font-family: "72", Arial, sans-serif;
+    }
+    .vdt-period-panel--open { display: block; }
+    .vdt-period-panel__title {
+      font-size: 13px; font-weight: 600; color: #32363a; margin-bottom: 12px;
+    }
+    .vdt-period-panel__section {
+      margin-bottom: 14px;
+    }
+    .vdt-period-panel__section:last-child { margin-bottom: 0; }
+    .vdt-period-panel__label {
+      font-size: 11px; font-weight: 600; color: #6a6d70; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .vdt-period-panel__select {
+      width: 100%; height: 32px; border: 1px solid #d9d9d9; border-radius: 4px;
+      background: #fff; font-family: "72", Arial, sans-serif; font-size: 12px;
+      color: #32363a; padding: 0 8px; cursor: pointer;
+    }
+    .vdt-period-panel__select:focus { border-color: #0a6ed1; outline: none; }
+    .vdt-period-panel__row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .vdt-period-panel__row .vdt-period-panel__select { flex: 1; }
+    .vdt-period-panel__row-sep {
+      font-size: 11px; color: #6a6d70; white-space: nowrap;
+    }
+    .vdt-period-panel__hint {
+      font-size: 11px; color: #89919a; margin-top: 4px;
+    }
+
     .vdt-level { display: flex; align-items: center; position: relative; }
     .vdt-level__gap { width: 48px; flex-shrink: 0; }
     .vdt-level__children { display: flex; flex-direction: column; gap: 16px; }
@@ -1084,6 +1133,49 @@ if (typeof module !== "undefined" && module.exports) {
         <canvas class="vdt-minimap__canvas" id="minimapCanvas"></canvas>
         <div class="vdt-minimap__viewport" id="minimapViewport"></div>
       </div>
+      <button class="vdt-period-btn" id="periodBtn" style="display:none;">
+        <span class="vdt-period-btn__icon">&#128197;</span>
+        <span class="vdt-period-btn__label" id="periodBtnLabel">Full Year</span>
+      </button>
+      <div class="vdt-period-panel" id="periodPanel">
+        <div class="vdt-period-panel__title">Period Settings</div>
+        <div class="vdt-period-panel__section">
+          <div class="vdt-period-panel__label">Display Period</div>
+          <select class="vdt-period-panel__select" id="periodDisplay">
+            <option value="current">Current Month (from SAC)</option>
+            <option value="01">January</option><option value="02">February</option>
+            <option value="03">March</option><option value="04">April</option>
+            <option value="05">May</option><option value="06">June</option>
+            <option value="07">July</option><option value="08">August</option>
+            <option value="09">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <div class="vdt-period-panel__hint">Month used for single-month and YTD display</div>
+        </div>
+        <div class="vdt-period-panel__section">
+          <div class="vdt-period-panel__label">Simulation Range</div>
+          <div class="vdt-period-panel__row">
+            <select class="vdt-period-panel__select" id="periodSimFrom">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+            <span class="vdt-period-panel__row-sep">to</span>
+            <select class="vdt-period-panel__select" id="periodSimTo">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="vdt-period-panel__hint">Slider changes only affect months in this range</div>
+        </div>
+      </div>
       ${CONFIG_HTML}
     </div>
   `;
@@ -1094,6 +1186,8 @@ if (typeof module !== "undefined" && module.exports) {
       this.treeData = null;
       this.nodeIndex = {};
       this._planningContext = null;
+      this._simFromIdx = 0;
+      this._simToIdx = 11;
     }
 
     // Build tree from configuration + data binding result
@@ -1462,10 +1556,18 @@ if (typeof module !== "undefined" && module.exports) {
     }
 
     recomputeMonthly(node) {
-      // Simulation applies to DS1 only
+      // Simulation applies to DS1 only, respecting simulation range
+      const simFrom = this._simFromIdx !== undefined ? this._simFromIdx : 0;
+      const simTo = this._simToIdx !== undefined ? this._simToIdx : 11;
       for (let i = 0; i < 12; i++) {
-        node.ds1.monthlyBase[i] = Math.round(node.ds1.monthlyOrig[i] * (1 + node.sliderPct / 100));
-        node.ds1.monthly[i] = node.ds1.monthlyBase[i] + node.ds1.monthlyAdj[i];
+        if (i >= simFrom && i <= simTo) {
+          node.ds1.monthlyBase[i] = Math.round(node.ds1.monthlyOrig[i] * (1 + node.sliderPct / 100));
+          node.ds1.monthly[i] = node.ds1.monthlyBase[i] + node.ds1.monthlyAdj[i];
+        } else {
+          // Outside simulation range: keep original values
+          node.ds1.monthlyBase[i] = node.ds1.monthlyOrig[i];
+          node.ds1.monthly[i] = node.ds1.monthlyOrig[i];
+        }
       }
       node.ds1.fullYear = node.ds1.monthly.reduce((a, b) => a + b, 0);
       node.ds1.monthValue = node.ds1.monthly[this._currentMonthIdx] || 0;
@@ -1818,9 +1920,22 @@ if (typeof module !== "undefined" && module.exports) {
       this._zoomLevel = 1;
       this._minimapVisible = true;
 
+      // Period panel elements
+      this._periodBtn = this._shadowRoot.getElementById("periodBtn");
+      this._periodBtnLabel = this._shadowRoot.getElementById("periodBtnLabel");
+      this._periodPanel = this._shadowRoot.getElementById("periodPanel");
+      this._periodDisplay = this._shadowRoot.getElementById("periodDisplay");
+      this._periodSimFrom = this._shadowRoot.getElementById("periodSimFrom");
+      this._periodSimTo = this._shadowRoot.getElementById("periodSimTo");
+      this._simFromIdx = 0;   // Jan (0-based)
+      this._simToIdx = 11;    // Dec (0-based)
+      this._periodSimFrom.value = "01";
+      this._periodSimTo.value = "12";
+
       this._bindEvents();
       this._bindConfigEvents();
       this._bindZoomEvents();
+      this._bindPeriodEvents();
     }
 
     // ── SAC Lifecycle ──
@@ -2504,6 +2619,7 @@ if (typeof module !== "undefined" && module.exports) {
         this._emptyState.style.display = "flex";
         this._treeRoot.style.display = "none";
         this._zoomBar.style.display = "none";
+        this._periodBtn.style.display = "none";
         this._minimap.classList.add("vdt-minimap--hidden");
         return;
       }
@@ -2511,7 +2627,9 @@ if (typeof module !== "undefined" && module.exports) {
       this._emptyState.style.display = "none";
       this._treeRoot.style.display = "inline-block";
       this._zoomBar.style.display = "flex";
+      this._periodBtn.style.display = "flex";
       if (this._minimapVisible) this._minimap.classList.remove("vdt-minimap--hidden");
+      this._updatePeriodBtnLabel();
       this._zoomWrapper.style.transform = `scale(${this._zoomLevel})`;
       this._treeContainer.innerHTML = this._renderer.renderTree(tree);
       requestAnimationFrame(() => {
@@ -2679,6 +2797,79 @@ if (typeof module !== "undefined" && module.exports) {
           window.addEventListener("mouseup", onUp);
         }
       });
+    }
+
+    // ── Period Panel ──
+    _bindPeriodEvents() {
+      // Toggle panel open/close
+      this._periodBtn.addEventListener("click", () => {
+        const open = this._periodPanel.classList.toggle("vdt-period-panel--open");
+        this._periodBtn.classList.toggle("vdt-period-btn--active", open);
+      });
+
+      // Close panel when clicking outside
+      this._shadowRoot.addEventListener("click", (e) => {
+        if (!this._periodPanel.contains(e.target) && !this._periodBtn.contains(e.target)) {
+          this._periodPanel.classList.remove("vdt-period-panel--open");
+          this._periodBtn.classList.remove("vdt-period-btn--active");
+        }
+      });
+
+      // Display period change
+      this._periodDisplay.addEventListener("change", () => {
+        this._applyPeriodSettings();
+      });
+
+      // Simulation range changes
+      this._periodSimFrom.addEventListener("change", () => this._applyPeriodSettings());
+      this._periodSimTo.addEventListener("change", () => this._applyPeriodSettings());
+    }
+
+    _applyPeriodSettings() {
+      const displayVal = this._periodDisplay.value;
+
+      // Update current month index based on selection
+      if (displayVal === "current") {
+        this._engine._currentMonthIdx = new Date().getMonth();
+      } else {
+        this._engine._currentMonthIdx = parseInt(displayVal) - 1;
+      }
+
+      // Update simulation range (0-based)
+      this._simFromIdx = parseInt(this._periodSimFrom.value) - 1;
+      this._simToIdx = parseInt(this._periodSimTo.value) - 1;
+      if (this._simToIdx < this._simFromIdx) {
+        this._simToIdx = this._simFromIdx;
+        this._periodSimTo.value = this._periodSimFrom.value;
+      }
+      this._engine._simFromIdx = this._simFromIdx;
+      this._engine._simToIdx = this._simToIdx;
+
+      // Update button label
+      this._updatePeriodBtnLabel();
+
+      // Re-render tree with new period settings
+      this.render();
+    }
+
+    _updatePeriodBtnLabel() {
+      const displayVal = this._periodDisplay.value;
+      const defaultDisplay = this._props.defaultDisplay || "year";
+      let label;
+      if (defaultDisplay === "year") {
+        label = "Full Year";
+      } else if (defaultDisplay === "ytd") {
+        const monthName = displayVal === "current" ? MONTHS[new Date().getMonth()] : MONTHS[parseInt(displayVal) - 1];
+        label = "YTD thru " + monthName;
+      } else {
+        label = displayVal === "current" ? MONTHS[new Date().getMonth()] : MONTHS[parseInt(displayVal) - 1];
+      }
+
+      // Append simulation range if not full year
+      if (this._simFromIdx > 0 || this._simToIdx < 11) {
+        label += " | Sim: " + MONTHS[this._simFromIdx] + "–" + MONTHS[this._simToIdx];
+      }
+      this._periodBtnLabel.textContent = label;
     }
 
     _setZoom(level) {
