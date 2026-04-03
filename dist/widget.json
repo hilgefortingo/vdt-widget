@@ -86,10 +86,10 @@
       "default": "",
       "description": "Year for Data Set 2 (e.g., '2019')"
     },
-    "defaultMonth": {
+    "defaultDisplay": {
       "type": "string",
-      "default": "current",
-      "description": "Default month: 'current' for system date, or '01'-'12' for specific month"
+      "default": "year",
+      "description": "Default display mode: 'year' (full year), 'month' (current month), or 'ytd' (year to date)"
     },
     "valueRows": {
       "type": "string",

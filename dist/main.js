@@ -1006,15 +1006,11 @@ if (typeof module !== "undefined" && module.exports) {
         <div class="vdt-config-section">
           <div class="vdt-config-section-title">Display Settings</div>
           <div class="vdt-config-field">
-            <label>Default Month</label>
-            <select id="cfgDefaultMonth">
-              <option value="current">Current Month</option>
-              <option value="01">January</option><option value="02">February</option>
-              <option value="03">March</option><option value="04">April</option>
-              <option value="05">May</option><option value="06">June</option>
-              <option value="07">July</option><option value="08">August</option>
-              <option value="09">September</option><option value="10">October</option>
-              <option value="11">November</option><option value="12">December</option>
+            <label>Default Display</label>
+            <select id="cfgDefaultDisplay">
+              <option value="year">Full Year</option>
+              <option value="month">Month</option>
+              <option value="ytd">Year to Date (YTD)</option>
             </select>
           </div>
           <div class="vdt-config-field">
@@ -1124,15 +1120,9 @@ if (typeof module !== "undefined" && module.exports) {
       const ds1Months = ds1Year ? monthMembers.filter(m => m.calMonth && m.calMonth.substring(0, 4) === ds1Year) : monthMembers;
       const ds2Months = ds2Year ? monthMembers.filter(m => m.calMonth && m.calMonth.substring(0, 4) === ds2Year) : monthMembers;
 
-      // Resolve default month index (0-based)
-      const defaultMonth = widgetProps.defaultMonth || "current";
-      let defaultMonthIdx;
-      if (defaultMonth === "current") {
-        defaultMonthIdx = new Date().getMonth();
-      } else {
-        defaultMonthIdx = parseInt(defaultMonth) - 1;
-      }
-      this._defaultMonthIdx = defaultMonthIdx;
+      // Resolve default display mode and current month index
+      this._defaultDisplay = widgetProps.defaultDisplay || "year";
+      this._currentMonthIdx = new Date().getMonth(); // 0-based
 
       // Parse value rows config
       let valueRowsConfig;
@@ -1237,7 +1227,8 @@ if (typeof module !== "undefined" && module.exports) {
           node.ds1.monthlyBase = node.ds1.monthlyOrig.slice();
           node.ds1.monthly = node.ds1.monthlyOrig.slice();
           node.ds1.fullYear = node.ds1.monthly.reduce((a, b) => a + b, 0);
-          node.ds1.monthValue = node.ds1.monthly[defaultMonthIdx] || 0;
+          node.ds1.monthValue = node.ds1.monthly[this._currentMonthIdx] || 0;
+          node.ds1.ytdValue = node.ds1.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
         } else {
           const fyVal = getFullYear(ds1Months, yearMembers, measureKey, ds1Version, ds1Year);
           if (fyVal) {
@@ -1251,7 +1242,8 @@ if (typeof module !== "undefined" && module.exports) {
           const ds2HasMonthly = fillMonthly(node.ds2.monthly, ds2Months, measureKey, ds2Version);
           if (ds2HasMonthly) {
             node.ds2.fullYear = node.ds2.monthly.reduce((a, b) => a + b, 0);
-            node.ds2.monthValue = node.ds2.monthly[defaultMonthIdx] || 0;
+            node.ds2.monthValue = node.ds2.monthly[this._currentMonthIdx] || 0;
+            node.ds2.ytdValue = node.ds2.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
           } else {
             const fyVal = getFullYear(ds2Months, yearMembers, measureKey, ds2Version, ds2Year);
             if (fyVal) node.ds2.fullYear = fyVal.value;
@@ -1342,7 +1334,10 @@ if (typeof module !== "undefined" && module.exports) {
     _buildDisplayRows(node, valueRowsConfig) {
       return (valueRowsConfig || this._valueRowsConfig || []).map(rowDef => {
         const ds = rowDef.dataSet === 2 ? node.ds2 : node.ds1;
-        const val = rowDef.timeVariant === "month" ? ds.monthValue : ds.fullYear;
+        let val;
+        if (rowDef.timeVariant === "month") val = ds.monthValue;
+        else if (rowDef.timeVariant === "ytd") val = ds.ytdValue || 0;
+        else val = ds.fullYear;
         return { label: rowDef.label, value: val, dataSet: rowDef.dataSet, timeVariant: rowDef.timeVariant };
       });
     }
@@ -1473,7 +1468,8 @@ if (typeof module !== "undefined" && module.exports) {
         node.ds1.monthly[i] = node.ds1.monthlyBase[i] + node.ds1.monthlyAdj[i];
       }
       node.ds1.fullYear = node.ds1.monthly.reduce((a, b) => a + b, 0);
-      node.ds1.monthValue = node.ds1.monthly[this._defaultMonthIdx] || 0;
+      node.ds1.monthValue = node.ds1.monthly[this._currentMonthIdx] || 0;
+      node.ds1.ytdValue = node.ds1.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
       // Recompute display rows and primary value
       node.displayRows = this._buildDisplayRows(node);
       node.value = node.displayRows.length > 0 ? node.displayRows[0].value : node.ds1.fullYear;
@@ -1503,14 +1499,16 @@ if (typeof module !== "undefined" && module.exports) {
         root.ds1.monthly[m] = this._applyOp(op, root.children.map(c => c.ds1.monthly[m]));
       }
       root.ds1.fullYear = root.ds1.monthly.reduce((a, b) => a + b, 0);
-      root.ds1.monthValue = root.ds1.monthly[this._defaultMonthIdx] || 0;
+      root.ds1.monthValue = root.ds1.monthly[this._currentMonthIdx] || 0;
+      root.ds1.ytdValue = root.ds1.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
 
       // Propagate DS2
       for (let m = 0; m < 12; m++) {
         root.ds2.monthly[m] = this._applyOp(op, root.children.map(c => c.ds2.monthly[m]));
       }
       root.ds2.fullYear = root.ds2.monthly.reduce((a, b) => a + b, 0);
-      root.ds2.monthValue = root.ds2.monthly[this._defaultMonthIdx] || 0;
+      root.ds2.monthValue = root.ds2.monthly[this._currentMonthIdx] || 0;
+      root.ds2.ytdValue = root.ds2.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
 
       // Recompute sparkline, display rows and primary value
       this._buildSparkline(root);
@@ -2207,7 +2205,7 @@ if (typeof module !== "undefined" && module.exports) {
 
       // Dimension + data set dropdowns
       ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgMeasure",
-       "cfgDs1Version", "cfgDs1Year", "cfgDs2Version", "cfgDs2Year", "cfgDefaultMonth"].forEach(selId => {
+       "cfgDs1Version", "cfgDs1Year", "cfgDs2Version", "cfgDs2Year", "cfgDefaultDisplay"].forEach(selId => {
         root.getElementById(selId).addEventListener("change", () => {
           this._applyConfigDimensions();
         });
@@ -2216,7 +2214,7 @@ if (typeof module !== "undefined" && module.exports) {
       // Restore saved props
       const granSel = root.getElementById("cfgTimeGranularity");
       if (this._props.timeGranularity) granSel.value = this._props.timeGranularity;
-      if (this._props.defaultMonth) root.getElementById("cfgDefaultMonth").value = this._props.defaultMonth;
+      if (this._props.defaultDisplay) root.getElementById("cfgDefaultDisplay").value = this._props.defaultDisplay;
 
       // Value rows editor
       this._renderValueRowsEditor();
@@ -2358,7 +2356,7 @@ if (typeof module !== "undefined" && module.exports) {
         ds1Year: root.getElementById("cfgDs1Year").value,
         ds2Version: root.getElementById("cfgDs2Version").value,
         ds2Year: root.getElementById("cfgDs2Year").value,
-        defaultMonth: root.getElementById("cfgDefaultMonth").value,
+        defaultDisplay: root.getElementById("cfgDefaultDisplay").value,
         valueRows: JSON.stringify(this._getValueRowsFromEditor())
       };
     }
