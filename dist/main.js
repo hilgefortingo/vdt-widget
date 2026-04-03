@@ -2082,13 +2082,30 @@ if (typeof module !== "undefined" && module.exports) {
             }
           }
           console.log("VDT: Fetching hierarchies for time dimension:", timeDimId);
-          if (timeDimId) {
-            const ds = this.dataBindings.getDataBinding("dataBinding").getDataSource();
-            const rawHier = ds.getHierarchies(timeDimId);
-            console.log("VDT: Got hierarchies:", rawHier);
-            if (rawHier && rawHier.length) {
-              timeHierarchies = rawHier.map(h => ({ id: h.id, description: h.description || h.id }));
+          if (timeDimId && db.metadata && db.metadata.mainStructureMembers) {
+            // Extract hierarchy from data binding member IDs
+            // Member IDs like "[Time].[YQM].&[201701]" contain the hierarchy
+            const hierSet = new Set();
+            if (db.data) {
+              const dimKey = parsedMeta.timeDimKey;
+              if (dimKey) {
+                for (let r = 0; r < db.data.length && hierSet.size < 5; r++) {
+                  const m = db.data[r][dimKey];
+                  if (m && m.id) {
+                    const match = m.id.match(/^\[([^\]]+)\]\.\[([^\]]+)\]/);
+                    if (match) hierSet.add(match[2]);
+                  }
+                  if (m && m.parentId) {
+                    const match2 = m.parentId.match(/^\[([^\]]+)\]\.\[([^\]]+)\]/);
+                    if (match2) hierSet.add(match2[2]);
+                  }
+                }
+              }
             }
+            console.log("VDT: Extracted hierarchies from member IDs:", Array.from(hierSet));
+            hierSet.forEach(h => {
+              timeHierarchies.push({ id: h, description: h });
+            });
           }
         } catch (e) {
           console.log("VDT: Could not fetch time hierarchies", e);
