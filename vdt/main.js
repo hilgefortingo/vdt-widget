@@ -1385,7 +1385,9 @@ if (typeof module !== "undefined" && module.exports) {
       this._planningContext = {
         parsedMeta,
         monthMembers: ds1Months,
+        yearMembers: yearMembers.filter(m => m.year === ds1Year),
         primaryVersion: ds1Version,
+        ds1Year: ds1Year,
         mdValue,
         accountDimId: parsedMeta.accounts ? Object.values(parsedMeta.accounts)[0]?.sacId?.match(/^\[([^\]]+)\]/)?.[1] || "Account" : "Account",
         versionDimId: parsedMeta.versionDimKey ? (parsedMeta.dimensions[parsedMeta.versionDimKey]?.id || "Version") : "Version",
@@ -1686,7 +1688,9 @@ if (typeof module !== "undefined" && module.exports) {
           versionDimension: ctx.versionDimId,
           timeDimension: ctx.timeDimId,
           version: ctx.primaryVersion,
-          measureDimValue: ctx.mdValue
+          measureDimValue: ctx.mdValue,
+          ds1Year: ctx.ds1Year,
+          displayMode: this._defaultDisplay || "year"
         } : null,
         changes,
         // Flat list of per-month write-back entries ready for setUserInput
@@ -1715,9 +1719,11 @@ if (typeof module !== "undefined" && module.exports) {
       const ctx = this._planningContext;
       if (!ctx) return [];
 
-      // Use leaf-level time members (months, quarters, or years depending on expansion)
-      const leafMembers = ctx.monthMembers; // these are now leaf-level members
-      const hasLeafMembers = leafMembers && leafMembers.length > 0;
+      const displayMode = this._defaultDisplay || "year";
+      const simFrom = this._simFromIdx !== undefined ? this._simFromIdx : 0;
+      const simTo = this._simToIdx !== undefined ? this._simToIdx : 11;
+      const monthMembers = ctx.monthMembers || [];
+      const yearMembers = ctx.yearMembers || [];
 
       const entries = [];
       changes.forEach(ch => {
@@ -1729,15 +1735,42 @@ if (typeof module !== "undefined" && module.exports) {
         // Skip parent/node accounts — SAC only allows write to leaf accounts
         if (acctInfo.isNode) return;
 
-        if (hasLeafMembers) {
-          // Per-period write-back: match monthly array slots to leaf time members
-          for (let i = 0; i < 12; i++) {
+        if (displayMode === "year") {
+          // Full year mode: write back the annual total using the year-level time member
+          const newFY = ch.monthly.reduce((a, b) => a + b, 0);
+          const origFY = ch.monthlyOrig.reduce((a, b) => a + b, 0);
+          const diff = newFY - origFY;
+          if (Math.abs(diff) < 0.5) return;
+
+          // Use year-level member if available, otherwise fall back to ds1Year
+          const yearMember = yearMembers.length > 0 ? yearMembers[0] : null;
+          entries.push({
+            accountId: acctInfo.cleanId,
+            accountSacId: acctInfo.sacId,
+            timeMemberId: yearMember ? yearMember.id : ctx.ds1Year,
+            timeLabel: yearMember ? yearMember.label : ctx.ds1Year,
+            version: ctx.primaryVersion,
+            measureDimValue: ctx.mdValue,
+            originalValue: origFY,
+            newValue: newFY,
+            delta: diff
+          });
+        } else {
+          // Month or YTD mode: write back individual month values
+          // Determine which months to include
+          let fromIdx = simFrom, toIdx = simTo;
+          if (displayMode === "ytd") {
+            // YTD: only write months up to the current display month
+            toIdx = Math.min(toIdx, this._currentMonthIdx);
+          }
+
+          for (let i = fromIdx; i <= toIdx; i++) {
             const diff = ch.monthly[i] - ch.monthlyOrig[i];
             if (Math.abs(diff) < 0.5) continue;
 
-            // Find the leaf time member for this slot
+            // Find the month-level time member for this slot
             const monthStr = String(i + 1).padStart(2, "0");
-            const timeMember = leafMembers.find(m => m.calMonth && m.calMonth.endsWith(monthStr));
+            const timeMember = monthMembers.find(m => m.calMonth && m.calMonth.endsWith(monthStr));
             if (!timeMember) continue;
 
             entries.push({
@@ -1745,7 +1778,6 @@ if (typeof module !== "undefined" && module.exports) {
               accountSacId: acctInfo.sacId,
               timeMemberId: timeMember.id,
               timeLabel: timeMember.label,
-              calMonth: timeMember.calMonth,
               version: ctx.primaryVersion,
               measureDimValue: ctx.mdValue,
               originalValue: ch.monthlyOrig[i],
@@ -1753,23 +1785,6 @@ if (typeof module !== "undefined" && module.exports) {
               delta: diff
             });
           }
-        } else {
-          // Aggregate write-back: no time breakdown, write total delta
-          const totalDiff = ch.newValue - ch.originalValue;
-          if (Math.abs(totalDiff) < 0.5) return;
-
-          entries.push({
-            accountId: acctInfo.cleanId,
-            accountSacId: acctInfo.sacId,
-            timeMemberId: "",
-            timeLabel: "(all)",
-            calMonth: "",
-            version: ctx.primaryVersion,
-            measureDimValue: ctx.mdValue,
-            originalValue: ch.originalValue,
-            newValue: ch.newValue,
-            delta: totalDiff
-          });
         }
       });
       return entries;
@@ -3425,7 +3440,9 @@ if (typeof module !== "undefined" && module.exports) {
         _writeBackMeasureDim: ctx.measureDimValue || "",
         _writeBackAccountDim: ctx.accountDimension || "",
         _writeBackVersionDim: ctx.versionDimension || "",
-        _writeBackTimeDim: ctx.timeDimension || ""
+        _writeBackTimeDim: ctx.timeDimension || "",
+        _writeBackYear: ctx.ds1Year || "",
+        _writeBackDisplayMode: ctx.displayMode || "year"
       };
 
       // Store directly on instance (for console debugging + direct access)

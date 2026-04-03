@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260403c",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260403d",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260403c",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260403d",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -195,6 +195,16 @@
       "type": "string",
       "default": "",
       "description": "The time dimension ID for write-back selections"
+    },
+    "_writeBackYear": {
+      "type": "string",
+      "default": "",
+      "description": "The DS1 year for write-back filtering (e.g., 2017)"
+    },
+    "_writeBackDisplayMode": {
+      "type": "string",
+      "default": "",
+      "description": "Display mode at write-back time: year, month, or ytd"
     }
   },
   "methods": {
@@ -289,6 +299,18 @@
       "description": "Returns the time dimension name for write-back selections",
       "parameters": [],
       "body": "return this._writeBackTimeDim;"
+    },
+    "getWriteBackYear": {
+      "returnType": "string",
+      "description": "Returns the DS1 year for write-back filtering",
+      "parameters": [],
+      "body": "return this._writeBackYear;"
+    },
+    "getWriteBackDisplayMode": {
+      "returnType": "string",
+      "description": "Returns the display mode at write-back time (year, month, ytd)",
+      "parameters": [],
+      "body": "return this._writeBackDisplayMode;"
     },
     "getTreeConfig": {
       "returnType": "string",
