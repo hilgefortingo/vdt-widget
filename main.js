@@ -62,7 +62,7 @@
 
     /* Period panel toggle button */
     .vdt-period-btn {
-      position: absolute; top: 12px; right: 12px; z-index: 90;
+      position: absolute; top: 12px; left: 12px; z-index: 90;
       height: 32px; border: 1px solid #d9d9d9; background: #fff; border-radius: 6px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.12); cursor: pointer; padding: 0 10px;
       display: flex; align-items: center; gap: 6px; font-family: "72", Arial, sans-serif;
@@ -73,10 +73,10 @@
     .vdt-period-btn__label { white-space: nowrap; }
     .vdt-period-btn--active { background: #e7f0fa; border-color: #0a6ed1; color: #0a6ed1; }
 
-    /* Period panel */
+    /* Period panel — left-side filter panel */
     .vdt-period-panel {
-      position: absolute; top: 50px; right: 12px; z-index: 95;
-      width: 280px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px;
+      position: absolute; top: 50px; left: 12px; z-index: 95;
+      width: 260px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 16px; display: none;
       font-family: "72", Arial, sans-serif;
     }
@@ -152,11 +152,11 @@
 
     /* Display Rows */
     .vdt-node__display-rows { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-    .vdt-node__value-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 2px 0; }
+    .vdt-node__value-row { display: grid; grid-template-columns: minmax(60px, auto) 1fr minmax(100px, auto); align-items: center; gap: 6px; padding: 2px 0; }
     .vdt-node__value-row + .vdt-node__value-row { border-top: 1px solid #f0f0f0; }
     .vdt-node__row-label { font-size: 10px; font-weight: 600; color: #6a6d70; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
     .vdt-node__row-value { font-size: 12px; font-weight: 600; color: #32363a; white-space: nowrap; text-align: right; }
-    .vdt-node__row-variance { text-align: right; white-space: nowrap; }
+    .vdt-node__row-variance { text-align: right; white-space: nowrap; justify-self: end; }
 
     /* Comparison (legacy) */
     .vdt-node__comparison { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
@@ -793,7 +793,7 @@
 
         // Build display rows
         node.displayRows = this._buildDisplayRows(node, valueRowsConfig);
-        node.value = node.displayRows.length > 0 ? node.displayRows[0].value : node.ds1.fullYear;
+        node.value = this._getHeadlineValue(node);
         node.baseValue = node.value;
       }
 
@@ -872,6 +872,14 @@
         else val = ds.fullYear;
         return { label: rowDef.label, value: val, dataSet: rowDef.dataSet, timeVariant: rowDef.timeVariant };
       });
+    }
+
+    // Resolve headline value based on defaultDisplay setting
+    _getHeadlineValue(node) {
+      const mode = this._defaultDisplay || "year";
+      if (mode === "month") return node.ds1.monthValue;
+      if (mode === "ytd") return node.ds1.ytdValue || 0;
+      return node.ds1.fullYear;
     }
 
     // Build tree from static demo data (no data binding)
@@ -1012,7 +1020,7 @@
       node.ds1.ytdValue = node.ds1.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
       // Recompute display rows and primary value
       node.displayRows = this._buildDisplayRows(node);
-      node.value = node.displayRows.length > 0 ? node.displayRows[0].value : node.ds1.fullYear;
+      node.value = this._getHeadlineValue(node);
     }
 
     // Helper: apply operator across an array of child values
@@ -1053,7 +1061,7 @@
       // Recompute sparkline, display rows and primary value
       this._buildSparkline(root);
       root.displayRows = this._buildDisplayRows(root);
-      root.value = root.displayRows.length > 0 ? root.displayRows[0].value : root.ds1.fullYear;
+      root.value = this._getHeadlineValue(root);
       root.baseValue = root.baseValue || root.value;
     }
 
