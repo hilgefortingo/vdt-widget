@@ -456,8 +456,8 @@
           </div>
           <div class="vdt-config-field">
             <label>Time Hierarchy</label>
-            <input type="text" id="cfgTimeHierarchy" class="vdt-config-input" placeholder="e.g., YQM" />
-            <div class="vdt-config-hint">Hierarchy ID from the Table's Time dimension (e.g., YQM, YMD). Used for write-back.</div>
+            <select id="cfgTimeHierarchy"><option value="">(select hierarchy)</option></select>
+            <div class="vdt-config-hint">Hierarchy from the Table's Time dimension. Used for write-back.</div>
           </div>
           <div class="vdt-config-field">
             <label>Time Granularity</label>
@@ -1500,8 +1500,23 @@
         monthMems.forEach(m => { if (m.calMonth) yearSet.add(m.calMonth.substring(0, 4)); });
         const years = Array.from(yearSet).sort();
 
+        // Fetch time hierarchies from the data source
+        let timeHierarchies = [];
+        try {
+          const timeDimId = this._props.timeDimension || (parsedMeta.timeDimKey ? (parsedMeta.dimensions[parsedMeta.timeDimKey]?.id || "") : "");
+          if (timeDimId) {
+            const ds = this.dataBindings.getDataBinding("dataBinding").getDataSource();
+            const rawHier = ds.getHierarchies(timeDimId);
+            if (rawHier && rawHier.length) {
+              timeHierarchies = rawHier.map(h => ({ id: h.id, description: h.description || h.id }));
+            }
+          }
+        } catch (e) {
+          console.log("VDT: Could not fetch time hierarchies", e);
+        }
+
         // Populate config panel dropdowns (main widget - works in design mode)
-        this._populateConfigDropdowns(dims, versions, mdMembers, accounts, years);
+        this._populateConfigDropdowns(dims, versions, mdMembers, accounts, years, timeHierarchies);
 
         // Also publish as JSON string properties for the styling panel (backward compat)
         this.dispatchEvent(new CustomEvent("propertiesChanged", {
@@ -1520,7 +1535,7 @@
     }
 
     // Populate the in-widget config panel dropdowns and builder account list
-    _populateConfigDropdowns(dims, versions, mdMembers, accounts, years) {
+    _populateConfigDropdowns(dims, versions, mdMembers, accounts, years, timeHierarchies) {
       const root = this._shadowRoot;
       this._accountList = accounts;
 
@@ -1585,6 +1600,21 @@
           mdSel.appendChild(opt);
         });
         mdSel.value = currentVal || this._props.measureDimValue || "";
+      }
+
+      // Time hierarchy dropdown
+      const hierSel = root.getElementById("cfgTimeHierarchy");
+      if (hierSel && timeHierarchies && timeHierarchies.length > 0) {
+        const currentVal = hierSel.value;
+        hierSel.innerHTML = '<option value="">(select hierarchy)</option>';
+        timeHierarchies.forEach(h => {
+          if (h.id === "@FlatHierarchy") return; // skip flat — not useful for write-back
+          const opt = document.createElement("option");
+          opt.value = h.id;
+          opt.textContent = h.description + " (" + h.id + ")";
+          hierSel.appendChild(opt);
+        });
+        hierSel.value = currentVal || this._props.timeHierarchy || "";
       }
 
       // Populate account dropdown in builder
@@ -1804,22 +1834,16 @@
       });
 
       // Dimension + data set dropdowns
-      ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgMeasure",
+      ["cfgVersionDim", "cfgTimeDim", "cfgTimeHierarchy", "cfgTimeGranularity", "cfgMeasure",
        "cfgDs1Version", "cfgDs1Year", "cfgDs2Version", "cfgDs2Year", "cfgDefaultDisplay"].forEach(selId => {
         root.getElementById(selId).addEventListener("change", () => {
           this._applyConfigDimensions();
         });
       });
 
-      // Time hierarchy input change
-      root.getElementById("cfgTimeHierarchy").addEventListener("input", () => {
-        this._applyConfigDimensions();
-      });
-
       // Restore saved props
       const granSel = root.getElementById("cfgTimeGranularity");
       if (this._props.timeGranularity) granSel.value = this._props.timeGranularity;
-      if (this._props.timeHierarchy) root.getElementById("cfgTimeHierarchy").value = this._props.timeHierarchy;
       if (this._props.defaultDisplay) root.getElementById("cfgDefaultDisplay").value = this._props.defaultDisplay;
 
       // Value rows editor
