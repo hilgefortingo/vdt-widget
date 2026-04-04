@@ -454,10 +454,9 @@
             <label>Time Dimension</label>
             <select id="cfgTimeDim"><option value="">(auto-detect)</option></select>
           </div>
-          <div class="vdt-config-field">
+          <div class="vdt-config-field" style="display:none;">
             <label>Time Hierarchy</label>
-            <select id="cfgTimeHierarchy"><option value="">(select hierarchy)</option></select>
-            <div class="vdt-config-hint">Hierarchy from the Table's Time dimension. Used for write-back.</div>
+            <select id="cfgTimeHierarchy"><option value="">(auto from Table)</option></select>
           </div>
           <div class="vdt-config-field">
             <label>Time Granularity</label>
@@ -1500,57 +1499,8 @@
         monthMems.forEach(m => { if (m.calMonth) yearSet.add(m.calMonth.substring(0, 4)); });
         const years = Array.from(yearSet).sort();
 
-        // Fetch time hierarchies from the data source
-        let timeHierarchies = [];
-        try {
-          // Try configured timeDimension first, then auto-detected from parser
-          let timeDimId = this._props.timeDimension || "";
-          if (!timeDimId && parsedMeta.timeDimKey) {
-            const dimInfo = parsedMeta.dimensions[parsedMeta.timeDimKey];
-            timeDimId = dimInfo ? dimInfo.id : "";
-          }
-          // Fallback: scan all dimensions for time-like names
-          if (!timeDimId) {
-            for (const key in parsedMeta.dimensions) {
-              const did = parsedMeta.dimensions[key].id;
-              if (did && (did.toLowerCase().indexOf("time") !== -1 || did.toLowerCase().indexOf("date") !== -1)) {
-                timeDimId = did;
-                break;
-              }
-            }
-          }
-          console.log("VDT: Fetching hierarchies for time dimension:", timeDimId);
-          if (timeDimId && db.metadata && db.metadata.mainStructureMembers) {
-            // Extract hierarchy from data binding member IDs
-            // Member IDs like "[Time].[YQM].&[201701]" contain the hierarchy
-            const hierSet = new Set();
-            if (db.data) {
-              const dimKey = parsedMeta.timeDimKey;
-              if (dimKey) {
-                for (let r = 0; r < db.data.length && hierSet.size < 5; r++) {
-                  const m = db.data[r][dimKey];
-                  if (m && m.id) {
-                    const match = m.id.match(/^\[([^\]]+)\]\.\[([^\]]+)\]/);
-                    if (match) hierSet.add(match[2]);
-                  }
-                  if (m && m.parentId) {
-                    const match2 = m.parentId.match(/^\[([^\]]+)\]\.\[([^\]]+)\]/);
-                    if (match2) hierSet.add(match2[2]);
-                  }
-                }
-              }
-            }
-            console.log("VDT: Extracted hierarchies from member IDs:", Array.from(hierSet));
-            hierSet.forEach(h => {
-              timeHierarchies.push({ id: h, description: h });
-            });
-          }
-        } catch (e) {
-          console.log("VDT: Could not fetch time hierarchies", e);
-        }
-
         // Populate config panel dropdowns (main widget - works in design mode)
-        this._populateConfigDropdowns(dims, versions, mdMembers, accounts, years, timeHierarchies);
+        this._populateConfigDropdowns(dims, versions, mdMembers, accounts, years);
 
         // Also publish as JSON string properties for the styling panel (backward compat)
         this.dispatchEvent(new CustomEvent("propertiesChanged", {
@@ -1569,7 +1519,7 @@
     }
 
     // Populate the in-widget config panel dropdowns and builder account list
-    _populateConfigDropdowns(dims, versions, mdMembers, accounts, years, timeHierarchies) {
+    _populateConfigDropdowns(dims, versions, mdMembers, accounts, years) {
       const root = this._shadowRoot;
       this._accountList = accounts;
 
@@ -1634,21 +1584,6 @@
           mdSel.appendChild(opt);
         });
         mdSel.value = currentVal || this._props.measureDimValue || "";
-      }
-
-      // Time hierarchy dropdown
-      const hierSel = root.getElementById("cfgTimeHierarchy");
-      if (hierSel && timeHierarchies && timeHierarchies.length > 0) {
-        const currentVal = hierSel.value;
-        hierSel.innerHTML = '<option value="">(select hierarchy)</option>';
-        timeHierarchies.forEach(h => {
-          if (h.id === "@FlatHierarchy") return; // skip flat — not useful for write-back
-          const opt = document.createElement("option");
-          opt.value = h.id;
-          opt.textContent = h.description + " (" + h.id + ")";
-          hierSel.appendChild(opt);
-        });
-        hierSel.value = currentVal || this._props.timeHierarchy || "";
       }
 
       // Populate account dropdown in builder
@@ -1868,7 +1803,7 @@
       });
 
       // Dimension + data set dropdowns
-      ["cfgVersionDim", "cfgTimeDim", "cfgTimeHierarchy", "cfgTimeGranularity", "cfgMeasure",
+      ["cfgVersionDim", "cfgTimeDim", "cfgTimeGranularity", "cfgMeasure",
        "cfgDs1Version", "cfgDs1Year", "cfgDs2Version", "cfgDs2Year", "cfgDefaultDisplay"].forEach(selId => {
         root.getElementById(selId).addEventListener("change", () => {
           this._applyConfigDimensions();
@@ -2014,7 +1949,6 @@
       return {
         versionDimension: root.getElementById("cfgVersionDim").value,
         timeDimension: root.getElementById("cfgTimeDim").value,
-        timeHierarchy: root.getElementById("cfgTimeHierarchy").value.trim(),
         timeGranularity: root.getElementById("cfgTimeGranularity").value,
         measureDimValue: root.getElementById("cfgMeasure").value,
         ds1Version: root.getElementById("cfgDs1Version").value,

@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260403h",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260403j",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260403h",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260403j",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -316,6 +316,25 @@
       "description": "Returns the display mode at write-back time (year, month, ytd)",
       "parameters": [],
       "body": "return this._writeBackDisplayMode;"
+    },
+    "setTimeHierarchy": {
+      "description": "Sets the time hierarchy ID from the Table (e.g., YQM). Called by SAC script before write-back.",
+      "parameters": [
+        { "name": "hierarchyId", "type": "string", "description": "The hierarchy ID (e.g., YQM, YM)" }
+      ],
+      "body": "this.timeHierarchy = hierarchyId;"
+    },
+    "getTimeHierarchy": {
+      "returnType": "string",
+      "description": "Returns the currently set time hierarchy ID",
+      "parameters": [],
+      "body": "return this.timeHierarchy || '';"
+    },
+    "getTimeDimension": {
+      "returnType": "string",
+      "description": "Returns the configured time dimension ID",
+      "parameters": [],
+      "body": "return this.timeDimension || '';"
     },
     "getTreeConfig": {
       "returnType": "string",
