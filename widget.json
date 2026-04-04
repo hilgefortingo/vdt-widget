@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260404b",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260404c",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260404b",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260404c",
       "integrity": "",
       "ignoreIntegrity": true
     }

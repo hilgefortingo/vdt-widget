@@ -1146,6 +1146,7 @@ if (typeof module !== "undefined" && module.exports) {
         <div class="vdt-period-panel__section">
           <div class="vdt-period-panel__label">Display Period</div>
           <select class="vdt-period-panel__select" id="periodDisplay">
+            <option value="year">Full Year</option>
             <option value="current">Current Month (from SAC)</option>
             <option value="01">January</option><option value="02">February</option>
             <option value="03">March</option><option value="04">April</option>
@@ -1154,7 +1155,7 @@ if (typeof module !== "undefined" && module.exports) {
             <option value="09">September</option><option value="10">October</option>
             <option value="11">November</option><option value="12">December</option>
           </select>
-          <div class="vdt-period-panel__hint">Month used for single-month and YTD display</div>
+          <div class="vdt-period-panel__hint">Full Year shows annual totals; months show single-month values</div>
         </div>
         <div class="vdt-period-panel__section">
           <div class="vdt-period-panel__label">Simulation Range</div>
@@ -1968,6 +1969,10 @@ if (typeof module !== "undefined" && module.exports) {
       this._simToIdx = 11;    // Dec (0-based)
       this._periodSimFrom.value = "01";
       this._periodSimTo.value = "12";
+      // Initialize period display to match configured default
+      const initDisplay = this._props.defaultDisplay || "year";
+      this._periodDisplay.value = initDisplay === "year" ? "year" : (initDisplay === "month" ? "current" : "year");
+      this._defaultDisplay = initDisplay;
 
       this._bindEvents();
       this._bindConfigEvents();
@@ -2865,11 +2870,18 @@ if (typeof module !== "undefined" && module.exports) {
     _applyPeriodSettings() {
       const displayVal = this._periodDisplay.value;
 
-      // Update current month index based on selection
-      if (displayVal === "current") {
-        this._engine._currentMonthIdx = new Date().getMonth();
+      // Switch display mode based on selection
+      if (displayVal === "year") {
+        this._engine._defaultDisplay = "year";
+        this._defaultDisplay = "year";
       } else {
-        this._engine._currentMonthIdx = parseInt(displayVal) - 1;
+        this._engine._defaultDisplay = "month";
+        this._defaultDisplay = "month";
+        if (displayVal === "current") {
+          this._engine._currentMonthIdx = new Date().getMonth();
+        } else {
+          this._engine._currentMonthIdx = parseInt(displayVal) - 1;
+        }
       }
 
       // Update simulation range (0-based)
@@ -2891,15 +2903,13 @@ if (typeof module !== "undefined" && module.exports) {
 
     _updatePeriodBtnLabel() {
       const displayVal = this._periodDisplay.value;
-      const defaultDisplay = this._props.defaultDisplay || "year";
       let label;
-      if (defaultDisplay === "year") {
+      if (displayVal === "year") {
         label = "Full Year";
-      } else if (defaultDisplay === "ytd") {
-        const monthName = displayVal === "current" ? MONTHS[new Date().getMonth()] : MONTHS[parseInt(displayVal) - 1];
-        label = "YTD thru " + monthName;
+      } else if (displayVal === "current") {
+        label = MONTHS[new Date().getMonth()];
       } else {
-        label = displayVal === "current" ? MONTHS[new Date().getMonth()] : MONTHS[parseInt(displayVal) - 1];
+        label = MONTHS[parseInt(displayVal) - 1];
       }
 
       // Append simulation range if not full year
