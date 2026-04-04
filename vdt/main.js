@@ -676,7 +676,7 @@ if (typeof module !== "undefined" && module.exports) {
     .vdt-level__children { display: flex; flex-direction: column; gap: 16px; }
 
     .vdt-node-wrap { position: relative; }
-    .vdt-node { display: grid; grid-template-columns: 6px 1fr 1fr; grid-template-rows: auto 1fr auto; width: 400px; min-height: 140px; border: 1px solid #d9d9d9; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: box-shadow 0.2s ease; font-family: "72", Arial, Helvetica, sans-serif; }
+    .vdt-node { display: grid; grid-template-columns: 6px 1fr 1fr 6px; grid-template-rows: auto 1fr auto; width: 400px; min-height: 140px; border: 1px solid #d9d9d9; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: box-shadow 0.2s ease; font-family: "72", Arial, Helvetica, sans-serif; }
     .vdt-node:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.14); }
 
     /* Threshold bar */
@@ -686,6 +686,14 @@ if (typeof module !== "undefined" && module.exports) {
     .vdt-node__threshold--negative { background: #bb0000; }
     .vdt-node__threshold--neutral { background: #89919a; }
     .vdt-node__threshold-arrow { color: #fff; font-size: 8px; line-height: 1; }
+
+    /* Simulation sidebar (right) */
+    .vdt-node__sim-bar { grid-column: 4; grid-row: 1 / -1; border-radius: 0 8px 8px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 6px; transition: background 0.2s ease; }
+    .vdt-node__sim-bar--positive { background: #107e3e; }
+    .vdt-node__sim-bar--warning { background: #e9730c; }
+    .vdt-node__sim-bar--negative { background: #bb0000; }
+    .vdt-node__sim-bar--neutral { background: #d9d9d9; }
+    .vdt-node__sim-label { color: #fff; font-size: 7px; font-weight: 700; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.3px; white-space: nowrap; }
 
     /* Header */
     .vdt-node__header { grid-column: 2 / 4; display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 8px 14px; border-bottom: 1px solid #eee; gap: 8px; }
@@ -1274,6 +1282,22 @@ if (typeof module !== "undefined" && module.exports) {
         return null;
       };
 
+      // Preserve simulation baselines from previous tree (survives write-back refreshes)
+      const oldBaselines = {};
+      const oldChangeLogs = {};
+      if (this.treeData) {
+        const collectOld = (node) => {
+          if (node.ds1 && node.ds1.monthlyBaseline) {
+            oldBaselines[node.id] = node.ds1.monthlyBaseline;
+          }
+          if (node.changeLog && node.changeLog.length > 0) {
+            oldChangeLogs[node.id] = node.changeLog;
+          }
+          if (node.children) node.children.forEach(collectOld);
+        };
+        collectOld(this.treeData);
+      }
+
       // Build nodes from config
       const nodeMap = {};
       config.nodes.forEach(n => {
@@ -1293,6 +1317,7 @@ if (typeof module !== "undefined" && module.exports) {
           ds1: {
             fullYear: 0, monthValue: 0,
             monthlyOrig: new Array(12).fill(0),
+            monthlyBaseline: null,  // set once on first load, survives write-back refreshes
             monthlyBase: new Array(12).fill(0),
             monthlyAdj: new Array(12).fill(0),
             monthly: new Array(12).fill(0)
@@ -1328,6 +1353,8 @@ if (typeof module !== "undefined" && module.exports) {
           node.ds1.fullYear = node.ds1.monthly.reduce((a, b) => a + b, 0);
           node.ds1.monthValue = node.ds1.monthly[this._currentMonthIdx] || 0;
           node.ds1.ytdValue = node.ds1.monthly.slice(0, this._currentMonthIdx + 1).reduce((a, b) => a + b, 0);
+          // Preserve baseline from previous tree, or set it on first load
+          node.ds1.monthlyBaseline = oldBaselines[node.id] || node.ds1.monthlyOrig.slice();
         } else {
           const fyVal = getFullYear(ds1Months, yearMembers, measureKey, ds1Version, ds1Year);
           if (fyVal) {
@@ -1354,6 +1381,9 @@ if (typeof module !== "undefined" && module.exports) {
           const anyVal = VDTDataParser.getNodeValue(dataBinding.data, parsedMeta, measureKey, mdValue, ds1Version, ds1Months[0]?.id);
           if (anyVal) node.unit = anyVal.unit || "";
         }
+
+        // Restore change log from previous tree
+        if (oldChangeLogs[node.id]) node.changeLog = oldChangeLogs[node.id];
 
         // Build sparkline from DS1 monthly data
         this._buildSparkline(node);
@@ -1385,6 +1415,7 @@ if (typeof module !== "undefined" && module.exports) {
 
       // Determine thresholds (DS1 fullYear vs DS2 fullYear)
       if (root) this._updateThresholds(root, widgetProps);
+      if (root) this._updateSimThresholds(root, widgetProps);
 
       // Store planning context for write-back (uses DS1)
       const timeDimId = parsedMeta.timeDimKey ? (parsedMeta.dimensions[parsedMeta.timeDimKey]?.id || "Time") : "Time";
@@ -1528,6 +1559,7 @@ if (typeof module !== "undefined" && module.exports) {
       const root = nodeMap["net-profit"];
       this.recalcParents(root);
       this._updateThresholds(root);
+      this._updateSimThresholds(root);
       this._setDemoSparklines(root);
       this.treeData = root;
       this._buildIndex(root);
@@ -1675,6 +1707,38 @@ if (typeof module !== "undefined" && module.exports) {
         node.thresholdArrow = "";
       }
       if (node.children) node.children.forEach(c => this._updateThresholds(c, widgetProps));
+    }
+
+    // Compute simulation threshold: current values vs baseline
+    _updateSimThresholds(node, widgetProps) {
+      if (!node) return;
+      node.simThreshold = "neutral";
+      node.simPct = 0;
+
+      const baseline = node.ds1.monthlyBaseline;
+      if (!baseline) { if (node.children) node.children.forEach(c => this._updateSimThresholds(c, widgetProps)); return; }
+
+      const baselineTotal = baseline.reduce((a, b) => a + b, 0);
+      const currentTotal = node.ds1.monthly.reduce((a, b) => a + b, 0);
+
+      if (baselineTotal !== 0) {
+        const pct = ((currentTotal - baselineTotal) / Math.abs(baselineTotal)) * 100;
+        node.simPct = pct;
+
+        const direction = node.kpiDirection || "higher";
+        const isUp = pct >= 0;
+        const favorable = (direction === "higher") ? isUp : !isUp;
+
+        const thPos = (widgetProps && widgetProps.simThresholdPositive) || 5;
+        const thNeg = (widgetProps && widgetProps.simThresholdNegative) || -5;
+        const absPct = Math.abs(pct);
+
+        if (absPct < 0.1) node.simThreshold = "neutral";
+        else if (favorable && absPct >= thPos) node.simThreshold = "positive";
+        else if (!favorable && absPct >= Math.abs(thNeg)) node.simThreshold = "negative";
+        else node.simThreshold = "warning";
+      }
+      if (node.children) node.children.forEach(c => this._updateSimThresholds(c, widgetProps));
     }
 
     _setDemoSparklines(node) {
@@ -1886,7 +1950,11 @@ if (typeof module !== "undefined" && module.exports) {
       // Design mode buttons (hidden until .vdt-design-mode is set on root)
       const designHtml = `<button class="vdt-design-add-child" data-design-add="${node.id}" title="Add child node">+</button><button class="vdt-design-edit" data-design-edit="${node.id}" title="Edit node">&#9998;</button><button class="vdt-design-del" data-design-del="${node.id}" title="Delete node">&times;</button>`;
 
-      return `<div class="vdt-node-wrap" data-node-id="${node.id}"><div class="vdt-node"><div class="vdt-node__threshold vdt-node__threshold--${node.threshold}">${node.thresholdArrow ? '<span class="vdt-node__threshold-arrow">' + node.thresholdArrow + '</span>' : ''}</div><div class="vdt-node__header"><span class="vdt-node__measure-name">${node.name}</span><span class="vdt-node__measure-value"><span class="vdt-node__value">${this.fmt(node.value)}</span><span class="vdt-node__unit">${node.unit}</span></span></div><div class="vdt-node__body"><div class="vdt-node__microchart"><svg viewBox="0 0 120 48" preserveAspectRatio="none"><path class="sparkline-area sparkline-area--${node.sparkTrend}" d="${this.areaPath(node.sparkPath)}"/><path class="sparkline sparkline--${node.sparkTrend}" d="${node.sparkPath}"/></svg></div><div class="vdt-node__display-rows">${rowsHtml}</div></div>${inputHtml}</div>${detailHtml}${anchorHtml}${toggleHtml}${designHtml}<div class="vdt-design-popup" data-design-popup="${node.id}"></div></div>`;
+      const simPct = node.simPct || 0;
+      const simLabel = Math.abs(simPct) >= 0.1 ? ((simPct > 0 ? "+" : "") + simPct.toFixed(1) + "%") : "";
+      const simBarHtml = `<div class="vdt-node__sim-bar vdt-node__sim-bar--${node.simThreshold || 'neutral'}"><span class="vdt-node__sim-label">${simLabel}</span></div>`;
+
+      return `<div class="vdt-node-wrap" data-node-id="${node.id}"><div class="vdt-node"><div class="vdt-node__threshold vdt-node__threshold--${node.threshold}">${node.thresholdArrow ? '<span class="vdt-node__threshold-arrow">' + node.thresholdArrow + '</span>' : ''}</div><div class="vdt-node__header"><span class="vdt-node__measure-name">${node.name}</span><span class="vdt-node__measure-value"><span class="vdt-node__value">${this.fmt(node.value)}</span><span class="vdt-node__unit">${node.unit}</span></span></div><div class="vdt-node__body"><div class="vdt-node__microchart"><svg viewBox="0 0 120 48" preserveAspectRatio="none"><path class="sparkline-area sparkline-area--${node.sparkTrend}" d="${this.areaPath(node.sparkPath)}"/><path class="sparkline sparkline--${node.sparkTrend}" d="${node.sparkPath}"/></svg></div><div class="vdt-node__display-rows">${rowsHtml}</div></div>${inputHtml}${simBarHtml}</div>${detailHtml}${anchorHtml}${toggleHtml}${designHtml}<div class="vdt-design-popup" data-design-popup="${node.id}"></div></div>`;
     }
 
     renderTree(node) {
@@ -3422,6 +3490,22 @@ if (typeof module !== "undefined" && module.exports) {
           varSpan.innerHTML = `<span class="vdt-node__variance-arrow">${v.arrow}</span><span>${v.varDisplay}</span><span>(${v.pctDisplay})</span>`;
         }
       });
+
+      // Simulation sidebar
+      this._engine._updateSimThresholds(node, this._props);
+      const simBar = wrap.querySelector(".vdt-node__sim-bar");
+      if (simBar) {
+        simBar.className = "vdt-node__sim-bar vdt-node__sim-bar--" + (node.simThreshold || "neutral");
+        const simLabel = simBar.querySelector(".vdt-node__sim-label");
+        if (simLabel) {
+          const sp = node.simPct || 0;
+          if (Math.abs(sp) < 0.1) {
+            simLabel.textContent = "";
+          } else {
+            simLabel.textContent = (sp > 0 ? "+" : "") + sp.toFixed(1) + "%";
+          }
+        }
+      }
 
       // Detail panel
       if (node.inputEnabled) this._updateDetailPanel(node);

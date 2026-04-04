@@ -72,8 +72,6 @@
               <option value="py">Previous Year</option>
               <option value="pm">Previous Month</option>
               <option value="pq">Previous Quarter</option>
-              <option value="version">Different Version</option>
-              <option value="custom">Custom Period</option>
             </select>
           </div>
         </div>
@@ -91,8 +89,6 @@
               <option value="py">Previous Year</option>
               <option value="pm">Previous Month</option>
               <option value="pq">Previous Quarter</option>
-              <option value="version">Different Version</option>
-              <option value="custom">Custom Period</option>
             </select>
           </div>
         </div>
@@ -110,30 +106,77 @@
               <option value="py">Previous Year</option>
               <option value="pm">Previous Month</option>
               <option value="pq">Previous Quarter</option>
-              <option value="version">Different Version</option>
-              <option value="custom">Custom Period</option>
             </select>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Section 3: Thresholds -->
+    <!-- Section 3: Comparison Thresholds -->
     <div class="section">
-      <div class="section-title">Threshold Indicators</div>
-      <div class="hint" style="margin-bottom:8px;">Color-coded bar on the left edge of each node based on variance percentage.</div>
+      <div class="section-title">Comparison Thresholds</div>
+      <div class="hint" style="margin-bottom:8px;">Color-coded bar on the left edge of each node based on comparison variance percentage.</div>
       <div class="row">
         <div class="field">
           <label style="color:#107e3e;">Positive &ge;</label>
-          <input type="number" id="threshPositive" value="5" /> <span class="hint">%</span>
+          <div class="row">
+            <input type="number" id="threshPositive" value="5" style="flex:1;" />
+            <span class="hint" style="align-self:center;">%</span>
+          </div>
         </div>
         <div class="field">
           <label style="color:#e9730c;">Warning &ge;</label>
-          <input type="number" id="threshWarning" value="0" /> <span class="hint">%</span>
+          <div class="row">
+            <input type="number" id="threshWarning" value="0" style="flex:1;" />
+            <span class="hint" style="align-self:center;">%</span>
+          </div>
         </div>
         <div class="field">
           <label style="color:#bb0000;">Negative &lt;</label>
-          <input type="number" id="threshNegative" value="-5" /> <span class="hint">%</span>
+          <div class="row">
+            <input type="number" id="threshNegative" value="-5" style="flex:1;" />
+            <span class="hint" style="align-self:center;">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:8px;">
+        <label>Apply to comparisons:</label>
+        <div style="display:flex; gap:16px; margin-top:4px;">
+          <label style="font-size:12px; font-weight:400; color:#32363a; display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="threshApplyFYPY" checked /> FY vs PY
+          </label>
+          <label style="font-size:12px; font-weight:400; color:#32363a; display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="threshApplyFMPM" checked /> FM vs PM
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3b: Simulation Thresholds -->
+    <div class="section">
+      <div class="section-title">Simulation Thresholds</div>
+      <div class="hint" style="margin-bottom:8px;">Color-coded bar on the right edge + percentage label showing simulation change vs baseline.</div>
+      <div class="row">
+        <div class="field">
+          <label style="color:#107e3e;">Positive &ge;</label>
+          <div class="row">
+            <input type="number" id="simThreshPositive" value="5" style="flex:1;" />
+            <span class="hint" style="align-self:center;">%</span>
+          </div>
+        </div>
+        <div class="field">
+          <label style="color:#e9730c;">Warning &ge;</label>
+          <div class="row">
+            <input type="number" id="simThreshWarning" value="0" style="flex:1;" />
+            <span class="hint" style="align-self:center;">%</span>
+          </div>
+        </div>
+        <div class="field">
+          <label style="color:#bb0000;">Negative &lt;</label>
+          <div class="row">
+            <input type="number" id="simThreshNegative" value="-5" style="flex:1;" />
+            <span class="hint" style="align-self:center;">%</span>
+          </div>
         </div>
       </div>
     </div>
@@ -198,6 +241,11 @@
       this._syncField("threshPositive", changedProperties.thresholdPositive);
       this._syncField("threshWarning", changedProperties.thresholdWarning);
       this._syncField("threshNegative", changedProperties.thresholdNegative);
+      this._syncCheckbox("threshApplyFYPY", changedProperties.thresholdApplyFYPY);
+      this._syncCheckbox("threshApplyFMPM", changedProperties.thresholdApplyFMPM);
+      this._syncField("simThreshPositive", changedProperties.simThresholdPositive);
+      this._syncField("simThreshWarning", changedProperties.simThresholdWarning);
+      this._syncField("simThreshNegative", changedProperties.simThresholdNegative);
       this._syncField("sliderMin", changedProperties.sliderMin);
       this._syncField("sliderMax", changedProperties.sliderMax);
       this._syncField("nodeWidth", changedProperties.nodeWidth);
@@ -208,6 +256,13 @@
       if (value !== undefined) {
         const el = this._shadowRoot.getElementById(elementId);
         if (el) el.value = value;
+      }
+    }
+
+    _syncCheckbox(elementId, value) {
+      if (value !== undefined) {
+        const el = this._shadowRoot.getElementById(elementId);
+        if (el) el.checked = value !== false && value !== "false";
       }
     }
 
@@ -223,6 +278,11 @@
         thresholdPositive: parseFloat(this._shadowRoot.getElementById("threshPositive").value) || 5,
         thresholdWarning: parseFloat(this._shadowRoot.getElementById("threshWarning").value) || 0,
         thresholdNegative: parseFloat(this._shadowRoot.getElementById("threshNegative").value) || -5,
+        thresholdApplyFYPY: this._shadowRoot.getElementById("threshApplyFYPY").checked,
+        thresholdApplyFMPM: this._shadowRoot.getElementById("threshApplyFMPM").checked,
+        simThresholdPositive: parseFloat(this._shadowRoot.getElementById("simThreshPositive").value) || 5,
+        simThresholdWarning: parseFloat(this._shadowRoot.getElementById("simThreshWarning").value) || 0,
+        simThresholdNegative: parseFloat(this._shadowRoot.getElementById("simThreshNegative").value) || -5,
         sliderMin: parseFloat(this._shadowRoot.getElementById("sliderMin").value) || -25,
         sliderMax: parseFloat(this._shadowRoot.getElementById("sliderMax").value) || 25,
         nodeWidth: parseInt(this._shadowRoot.getElementById("nodeWidth").value) || 400,

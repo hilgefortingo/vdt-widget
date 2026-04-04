@@ -14,14 +14,14 @@
     {
       "kind": "main",
       "tag": "com-custom-vdt-main",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260404c",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/main.js?v=20260404d",
       "integrity": "",
       "ignoreIntegrity": true
     },
     {
       "kind": "styling",
       "tag": "com-custom-vdt-styling",
-      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260404c",
+      "url": "https://hilgefortingo.github.io/vdt-widget/vdt/styling.js?v=20260404d",
       "integrity": "",
       "ignoreIntegrity": true
     }
@@ -130,6 +130,31 @@
       "type": "number",
       "default": -5,
       "description": "Negative threshold percentage"
+    },
+    "thresholdApplyFYPY": {
+      "type": "boolean",
+      "default": true,
+      "description": "Apply comparison thresholds to FY vs PY variance"
+    },
+    "thresholdApplyFMPM": {
+      "type": "boolean",
+      "default": true,
+      "description": "Apply comparison thresholds to FM vs PM variance"
+    },
+    "simThresholdPositive": {
+      "type": "number",
+      "default": 5,
+      "description": "Simulation positive threshold percentage"
+    },
+    "simThresholdWarning": {
+      "type": "number",
+      "default": 0,
+      "description": "Simulation warning threshold percentage"
+    },
+    "simThresholdNegative": {
+      "type": "number",
+      "default": -5,
+      "description": "Simulation negative threshold percentage"
     },
     "sliderMin": {
       "type": "number",
