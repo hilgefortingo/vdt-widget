@@ -1574,15 +1574,26 @@ if (typeof module !== "undefined" && module.exports) {
     }
 
     recomputeMonthly(node) {
-      // Simulation applies to DS1 only, respecting simulation range
+      // Simulation applies to DS1 only, respecting display mode and simulation range
       const simFrom = this._simFromIdx !== undefined ? this._simFromIdx : 0;
       const simTo = this._simToIdx !== undefined ? this._simToIdx : 11;
+      const mode = this._defaultDisplay || "year";
+      const curMonth = this._currentMonthIdx !== undefined ? this._currentMonthIdx : new Date().getMonth();
       for (let i = 0; i < 12; i++) {
-        if (i >= simFrom && i <= simTo) {
+        // Determine if this month should be affected by the slider
+        let inScope = false;
+        if (mode === "year") {
+          inScope = i >= simFrom && i <= simTo;
+        } else if (mode === "month") {
+          inScope = i === curMonth && i >= simFrom && i <= simTo;
+        } else if (mode === "ytd") {
+          inScope = i <= curMonth && i >= simFrom && i <= simTo;
+        }
+        if (inScope) {
           node.ds1.monthlyBase[i] = Math.round(node.ds1.monthlyOrig[i] * (1 + node.sliderPct / 100));
           node.ds1.monthly[i] = node.ds1.monthlyBase[i] + node.ds1.monthlyAdj[i];
         } else {
-          // Outside simulation range: keep original values
+          // Outside scope: keep original values
           node.ds1.monthlyBase[i] = node.ds1.monthlyOrig[i];
           node.ds1.monthly[i] = node.ds1.monthlyOrig[i];
         }
