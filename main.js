@@ -2885,10 +2885,20 @@
       const entries = result.writeBackEntries || [];
       const ctx = result.planningContext || {};
 
+      // Apply time hierarchy to build full SAC time IDs
+      // timeHierarchy is set via scripting (setTimeHierarchy) from the Table's active hierarchy
+      const hier = this.timeHierarchy || this._props.timeHierarchy || "";
+      const timeDimId = ctx.timeDimension || "Time";
+      const formatTimeId = (id) => {
+        if (!id || id.startsWith("[")) return id;
+        if (hier) return "[" + timeDimId + "].[" + hier + "].&[" + id + "]";
+        return id;
+      };
+
       // Build pipe-delimited arrays for SAC scripting (no JSON.parse needed)
       // Use full SAC member IDs — setUserInput requires these, not short IDs
       const accounts = entries.map(e => e.accountSacId).join("|");
-      const times = entries.map(e => e.timeMemberId).join("|");
+      const times = entries.map(e => formatTimeId(e.timeMemberId)).join("|");
       const values = entries.map(e => String(Math.round(e.newValue))).join("|");
 
       const props = {
