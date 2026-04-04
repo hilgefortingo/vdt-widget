@@ -3449,8 +3449,9 @@ if (typeof module !== "undefined" && module.exports) {
 
       // Apply time hierarchy to build full SAC time IDs
       // timeHierarchy is set via scripting (setTimeHierarchy) from the Table's active hierarchy
-      const hier = this.timeHierarchy || this._props.timeHierarchy || "";
+      const hier = this._props.timeHierarchy || "";
       const timeDimId = ctx.timeDimension || "Time";
+      console.log("VDT: _publishChanges hierarchy='" + hier + "', timeDimId='" + timeDimId + "'");
       const formatTimeId = (id) => {
         if (!id || id.startsWith("[")) return id;
         if (hier) return "[" + timeDimId + "].[" + hier + "].&[" + id + "]";
